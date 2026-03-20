@@ -9,6 +9,24 @@ const supabase = createClient(
 );
 
 export default function LeagueOfMusicApp() {
+
+  const startNewRound = async () => {
+    const promptText = window.prompt("Enter new prompt for the next round:");
+    if (!promptText) return;
+
+    const { error } = await supabase.from("weeks").insert({
+      prompt: promptText,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    // reset local state + reload
+    setSubmissionsLocked(false);
+    window.location.reload();
+  };
   const [session, setSession] = useState<any>(null);
   const [week, setWeek] = useState<any>(null);
   const [submissionsLocked, setSubmissionsLocked] = useState(false);
@@ -232,7 +250,15 @@ export default function LeagueOfMusicApp() {
     <div className="min-h-screen bg-black text-white">
       {/* TOP BAR */}
       <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800">
-        <h1 className="text-2xl font-bold">League of Music</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">League of Music</h1>
+          <button
+            onClick={startNewRound}
+            className="text-xs px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-full"
+          >
+            New Round
+          </button>
+        </div>
 
         <button
           onClick={logout}
@@ -275,7 +301,7 @@ export default function LeagueOfMusicApp() {
 
           <button
             onClick={submitSong}
-            disabled={hasSubmitted || submissionsLocked}
+            disabled={hasSubmitted}
             className="px-6 py-3 bg-green-500 hover:bg-green-600 rounded-full font-semibold disabled:opacity-40"
           >
             {hasSubmitted ? "Submitted" : "Submit"}
