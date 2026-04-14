@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendSms } from "@/lib/twilio";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,15 +62,18 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Email the selected author (fire and forget)
+  // Notify the selected author (#1) — fire and forget
   const { data: authorProfile } = await admin
     .from("profiles")
-    .select("email, name")
+    .select("email, name, phone")
     .eq("id", authorId)
     .single();
 
-  if (authorProfile?.email) {
+  if (authorProfile) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    if (authorProfile.phone) {
+      sendSms(authorProfile.phone, `🎵 It's your turn to pick the prompt for ${league.name}! You have 24 hours. ${appUrl}`).catch(() => {});
+    }
     const deadlineStr = new Date(promptDeadline).toLocaleString("en-US", {
       month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
     });

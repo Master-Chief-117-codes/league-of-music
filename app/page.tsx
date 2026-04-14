@@ -224,7 +224,7 @@ export default function App() {
     typeof window !== "undefined" ? localStorage.getItem("spotify_refresh_token") : null
   );
   const [exportingPlaylist, setExportingPlaylist] = useState(false);
-  const [votesLockedIn, setVotesLockedIn] = useState(false);
+  const [voteLocks, setVoteLocks] = useState<Set<string>>(new Set());
 
   /* ── Reveal animation ── */
   const [justRevealed, setJustRevealed] = useState(false);
@@ -375,6 +375,9 @@ export default function App() {
   const loadAllForWeek = useCallback(async (weekId: string) => {
     const userId = userIdRef.current;
 
+    const { data: vl } = await supabase.from("vote_locks").select("user_id").eq("week_id", weekId);
+    setVoteLocks(new Set((vl || []).map((l: any) => l.user_id)));
+
     const { data: songs } = await supabase.from("song_submissions").select("*").eq("week_id", weekId);
     const list = songs || [];
     setSubmissions(list);
@@ -446,7 +449,7 @@ export default function App() {
       setSubmissions([]);
       setSubmissionsLocked(false);
       setIdentitiesRevealed(false);
-      setVotesLockedIn(false);
+      setVoteLocks(new Set());
 
       const { data: members } = await supabase.from("league_members").select("user_id, wins, points").eq("league_id", selectedLeagueId);
       const memberIds = (members || []).map((m: any) => m.user_id);
@@ -488,6 +491,7 @@ export default function App() {
       .on("postgres_changes", { event: "*", schema: "public", table: "song_reactions", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "song_comments", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
+      .on("postgres_changes", { event: "*", schema: "public", table: "vote_locks", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [week?.id, loadAllForWeek]);
@@ -557,9 +561,15 @@ export default function App() {
     if (submissionsLocked || !week || !session || isSubmitting) return;
     setIsSubmitting(true);
     setUrlError("");
-    const { data: existing } = await supabase.from("song_submissions").select("id").eq("week_id", week.id).eq("user_id", session.user.id).maybeSingle();
-    if (!existing) {
-      await supabase.from("song_submissions").insert({ week_id: week.id, user_id: session.user.id, spotify_url: trimmed });
+    const res = await fetch("/api/submit-song", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId, spotifyUrl: trimmed }),
+    });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      setUrlError(b.error || "Failed to submit");
+    } else {
       await loadAllForWeek(week.id);
       setHasSubmitted(true);
       setSpotifyUrl("");
@@ -648,43 +658,30 @@ export default function App() {
     }
   };
 
-  // Reveal does both lock + reveal in one step (no separate lock phase)
   const revealIdentities = async () => {
-    if (identitiesRevealed || !week || !selectedLeagueId) return;
-    await supabase.from("weeks").update({ revealed: true, locked: true }).eq("id", week.id);
+    if (identitiesRevealed || !week || !selectedLeagueId || !session) return;
+    const res = await fetch("/api/reveal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
+    });
+    if (!res.ok) { toast("Failed to reveal", "error"); return; }
     setIdentitiesRevealed(true);
     setSubmissionsLocked(true);
     setJustRevealed(true);
     setTimeout(() => setJustRevealed(false), 2500);
-
-    // Fetch fresh votes and compute weighted scores
-    const { data: freshVotes } = await supabase.from("song_votes").select("submission_id, rank").eq("week_id", week.id);
-    const freshScores: Record<string, number> = {};
-    freshVotes?.forEach((v: any) => {
-      if (v.rank) freshScores[v.submission_id] = (freshScores[v.submission_id] || 0) + (RANK_PTS[v.rank] || 0);
-    });
-
-    const ranked = [...submissions]
-      .map((s) => ({ ...s, score: freshScores[s.id] || 0 }))
-      .filter((s) => s.score > 0)
-      .sort((a, b) => b.score - a.score);
-
-    // Award league points: 3/2/1 to top 3 distinct scores
-    const LEAGUE_PTS = [3, 2, 1];
-    let rank = 0;
-    let prevScore = -1;
-    for (const s of ranked) {
-      if (s.score !== prevScore) { rank++; prevScore = s.score; }
-      if (rank > 3) break;
-      await supabase.rpc("add_league_points", { league_id_input: selectedLeagueId, user_id_input: s.user_id, points_to_add: LEAGUE_PTS[rank - 1] });
-    }
-    const topScore = ranked.length ? ranked[0].score : 0;
-    if (topScore > 0) {
-      for (const s of ranked.filter((s) => s.score === topScore)) {
-        await supabase.rpc("increment_league_wins", { league_id_input: selectedLeagueId, user_id_input: s.user_id });
-      }
-    }
+    await loadAllForWeek(week.id);
     toast("Identities revealed! 🎉", "success");
+  };
+
+  const lockInVotes = async () => {
+    if (!week || !session || !selectedLeagueId) return;
+    const res = await fetch("/api/lock-votes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
+    });
+    if (res.ok) setVoteLocks((prev) => new Set([...prev, session.user.id]));
   };
 
   const startNewRound = async () => {
@@ -975,7 +972,7 @@ export default function App() {
               <p className="text-[11px] text-zinc-600 mt-1.5">For SMS reminders like "1 hour left to submit your song"</p>
             </Field>
           </div>
-          <button onClick={createProfile} disabled={!name.trim()} className="btn-primary w-full">Join the League</button>
+          <button onClick={createProfile} disabled={!name.trim() || !phone.trim()} className="btn-primary w-full">Join the League</button>
         </div>
       </div>
     );
@@ -1153,6 +1150,7 @@ export default function App() {
     comments[songId]?.some((c: any) => c.user_id === session.user.id) ?? false;
 
   const hasSpotifyConnection = !!(spotifyToken || spotifyRefreshToken);
+  const isLockedIn = voteLocks.has(session?.user?.id ?? "");
 
   return (
     <div className="min-h-screen bg-black">
@@ -1295,13 +1293,13 @@ export default function App() {
 
             {/* Lock in votes button */}
             {!identitiesRevealed && Object.keys(myRanks).length > 0 && (
-              votesLockedIn ? (
+              isLockedIn ? (
                 <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
                   <span className="text-green-400 text-sm">✓</span>
                   <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
                 </div>
               ) : (
-                <button onClick={() => setVotesLockedIn(true)}
+                <button onClick={lockInVotes}
                   className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
                   Lock in votes
                 </button>
@@ -1377,9 +1375,9 @@ export default function App() {
                             {([1, 2, 3] as const).map((r) => {
                               const selected = myRanks[song.id] === r;
                               return (
-                                <button key={r} onClick={() => !votesLockedIn && setVoteRank(song.id, r)}
+                                <button key={r} onClick={() => !isLockedIn && setVoteRank(song.id, r)}
                                   className={`w-9 h-9 rounded-full text-xs font-bold transition-all border ${
-                                    votesLockedIn
+                                    isLockedIn
                                       ? selected ? "bg-green-500/50 border-green-500/50 text-black cursor-default" : "border-zinc-800 text-zinc-700 cursor-default"
                                       : selected ? "bg-green-500 border-green-500 text-black active:scale-95" : "border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-200 active:scale-95"
                                   }`}>
