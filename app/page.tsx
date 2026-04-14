@@ -224,6 +224,7 @@ export default function App() {
     typeof window !== "undefined" ? localStorage.getItem("spotify_refresh_token") : null
   );
   const [exportingPlaylist, setExportingPlaylist] = useState(false);
+  const [votesLockedIn, setVotesLockedIn] = useState(false);
 
   /* ── Reveal animation ── */
   const [justRevealed, setJustRevealed] = useState(false);
@@ -445,6 +446,7 @@ export default function App() {
       setSubmissions([]);
       setSubmissionsLocked(false);
       setIdentitiesRevealed(false);
+      setVotesLockedIn(false);
 
       const { data: members } = await supabase.from("league_members").select("user_id, wins, points").eq("league_id", selectedLeagueId);
       const memberIds = (members || []).map((m: any) => m.user_id);
@@ -1237,30 +1239,32 @@ export default function App() {
               </div>
             )}
 
-            {/* How-to-play banner — shown once round is active */}
+            {/* How-to-play banner */}
             {week && !isPendingPrompt && !identitiesRevealed && (
               <div className="rounded-2xl overflow-hidden border border-zinc-800/60 bg-gradient-to-br from-zinc-950 to-black">
                 <div className="px-4 py-3 border-b border-zinc-800/40 flex items-center gap-2">
                   <span className="text-sm">🎵</span>
-                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">How to play</p>
+                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">How it works</p>
                 </div>
-                <div className="px-4 py-3.5 space-y-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-green-500 mt-0.5 text-sm leading-none">①</span>
-                    <p className="text-xs text-zinc-400 leading-relaxed">Listen to each song and drop a comment — funny, nice, or both. <span className="text-zinc-500">You must comment before you can vote.</span></p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-green-500 mt-0.5 text-sm leading-none">②</span>
-                    <p className="text-xs text-zinc-400 leading-relaxed">Rank your top 3 by how well they fit the prompt. <span className="text-zinc-500">#1 = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span></p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-green-500 mt-0.5 text-sm leading-none">③</span>
-                    <p className="text-xs text-zinc-400 leading-relaxed">Guess who submitted each song — find out when the host reveals!</p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-base leading-none">😊</span>
-                    <p className="text-xs text-zinc-600 leading-relaxed italic">There's technically a winner — but the real prize is the music we shared along the way.</p>
-                  </div>
+                <div className="px-4 py-4 space-y-4">
+                  {[
+                    { n: "1", title: "Submit a song!", sub: null },
+                    { n: "2", title: "Submissions revealed", sub: "Listen to each song and drop a comment — funny, nice, or both." },
+                    { n: "3", title: "Then vote", sub: "Rank your top 3 by how well they fit the prompt. You must comment before you can vote." },
+                    { n: "4", title: "Guess who submitted each song", sub: "This is just for fun — find out when the votes are revealed!" },
+                    { n: "5", title: "Votes revealed!", sub: null },
+                  ].map(({ n, title, sub }) => (
+                    <div key={n} className="flex items-start gap-3">
+                      <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-[10px] font-bold text-green-400">{n}</span>
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-white leading-snug">{title}</p>
+                        {sub && <p className="text-xs text-zinc-500 leading-relaxed mt-0.5">{sub}</p>}
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-xs text-zinc-600 italic pl-8">There's technically a winner — but the real prize is the music we shared along the way. 😊</p>
                 </div>
               </div>
             )}
@@ -1287,6 +1291,21 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-600">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
               </div>
+            )}
+
+            {/* Lock in votes button */}
+            {!identitiesRevealed && Object.keys(myRanks).length > 0 && (
+              votesLockedIn ? (
+                <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
+                  <span className="text-green-400 text-sm">✓</span>
+                  <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
+                </div>
+              ) : (
+                <button onClick={() => setVotesLockedIn(true)}
+                  className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
+                  Lock in votes
+                </button>
+              )
             )}
 
             {/* Song cards */}
@@ -1358,11 +1377,11 @@ export default function App() {
                             {([1, 2, 3] as const).map((r) => {
                               const selected = myRanks[song.id] === r;
                               return (
-                                <button key={r} onClick={() => setVoteRank(song.id, r)}
-                                  className={`w-9 h-9 rounded-full text-xs font-bold transition-all active:scale-95 border ${
-                                    selected
-                                      ? "bg-green-500 border-green-500 text-black"
-                                      : "border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-200"
+                                <button key={r} onClick={() => !votesLockedIn && setVoteRank(song.id, r)}
+                                  className={`w-9 h-9 rounded-full text-xs font-bold transition-all border ${
+                                    votesLockedIn
+                                      ? selected ? "bg-green-500/50 border-green-500/50 text-black cursor-default" : "border-zinc-800 text-zinc-700 cursor-default"
+                                      : selected ? "bg-green-500 border-green-500 text-black active:scale-95" : "border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-200 active:scale-95"
                                   }`}>
                                   #{r}
                                 </button>
