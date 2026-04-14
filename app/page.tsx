@@ -108,7 +108,7 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
 }
 
 function TabBar({ active, onChange }: { active: string; onChange: (t: string) => void }) {
-  const tabs = [{ key: "current", label: "Round" }, { key: "leaderboard", label: "Leaderboard" }, { key: "history", label: "History" }];
+  const tabs = [{ key: "current", label: "Round" }, { key: "leaderboard", label: "Members" }, { key: "history", label: "History" }];
   return (
     <div className="flex border-b border-zinc-900 bg-black sticky top-14 z-10">
       {tabs.map((t) => (
@@ -821,7 +821,21 @@ export default function App() {
     });
     const body = await res.json();
     if (!res.ok || !body.token) { toast("Failed to generate invite link", "error"); return; }
-    await navigator.clipboard.writeText(`${window.location.origin}/join/${body.token}`).catch(() => {});
+    const link = `${window.location.origin}/join/${body.token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      // Fallback for mobile browsers that block clipboard API
+      const el = document.createElement("textarea");
+      el.value = link;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
     toast("Invite link copied!", "success");
   };
 
@@ -1208,11 +1222,13 @@ export default function App() {
 
             {/* How-to-play banner — shown once round is active */}
             {week && !isPendingPrompt && !identitiesRevealed && (
-              <div className="flex items-start gap-2.5 px-4 py-3 bg-zinc-950 border border-zinc-800/50 rounded-2xl">
+              <div className="flex items-start gap-2.5 px-4 py-3.5 bg-zinc-950 border border-zinc-800/50 rounded-2xl">
                 <span className="text-base leading-none mt-0.5">😊</span>
-                <div className="text-xs text-zinc-500 leading-relaxed">
-                  <span>Listen to each song and leave a comment, then rank your top 3.</span>
-                  <span className="block text-zinc-700 mt-0.5">#1 pick = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span>
+                <div className="text-xs text-zinc-500 leading-relaxed space-y-0.5">
+                  <span className="block">Listen to each song and drop a comment — something funny, something nice, anything goes.</span>
+                  <span className="block text-zinc-600">You must comment on a song before you can rank it.</span>
+                  <span className="block text-zinc-600">Rank your top 3: <span className="text-zinc-500">#1 = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span></span>
+                  <span className="block text-zinc-700 pt-0.5">There's technically a winner — but the real prize is the music we shared along the way. 🎵</span>
                 </div>
               </div>
             )}
@@ -1483,38 +1499,22 @@ export default function App() {
           </div>
         )}
 
-        {/* ── LEADERBOARD TAB ── */}
+        {/* ── MEMBERS TAB ── */}
         {activeTab === "leaderboard" && (
           <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Season Standings</p>
-              <p className="text-[10px] text-zinc-700">top 3 songs rewarded each round</p>
-            </div>
+            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Who's in the group</p>
             {leaderboard.length === 0 ? (
               <p className="text-zinc-600 text-sm py-10 text-center">No players yet.</p>
-            ) : leaderboard.map((p: any, i: number) => {
-              const medals = ["🥇", "🥈", "🥉"];
-              const pts = p.points || 0;
-              const maxPts = (leaderboard[0] as any).points || 1;
+            ) : leaderboard.map((p: any) => {
               const isYou = p.id === session.user.id;
               return (
                 <div key={p.id} className="relative">
                   <button onClick={() => setViewingUserId(p.id)}
                     className="w-full flex items-center gap-3 bg-zinc-950 border border-zinc-800/60 rounded-2xl px-4 py-3.5 hover:border-zinc-700 transition-colors text-left">
-                    <span className="w-6 text-center flex-shrink-0">
-                      {i < 3 ? <span className="text-lg">{medals[i]}</span> : <span className="text-sm text-zinc-600 font-bold">#{i + 1}</span>}
-                    </span>
                     <Avatar name={p.name} size="sm" />
-                    <div className="flex-1 min-w-0 pr-6">
-                      <p className="text-sm font-medium text-white">{p.name}</p>
-                      <div className="mt-1.5 h-1 bg-zinc-800 rounded-full overflow-hidden w-full">
-                        <div className="h-full bg-green-500 rounded-full transition-all"
-                          style={{ width: `${maxPts > 0 ? Math.round((pts / maxPts) * 100) : 0}%` }} />
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-lg font-bold text-green-400 tabular-nums">{pts}</p>
-                      <p className="text-[10px] text-zinc-600 tabular-nums">{p.wins || 0}W</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white">{p.name}{isYou && <span className="ml-1.5 text-[10px] text-zinc-600">(you)</span>}</p>
+                      {p.top_artists && <p className="text-xs text-zinc-600 truncate">{p.top_artists}</p>}
                     </div>
                   </button>
                   {isHost && !isYou && (
