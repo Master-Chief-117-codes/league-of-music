@@ -1229,7 +1229,11 @@ export default function App() {
                   </div>
                   <div className="flex items-start gap-2.5">
                     <span className="text-green-500 mt-0.5 text-sm leading-none">②</span>
-                    <p className="text-xs text-zinc-400 leading-relaxed">Rank your top 3. <span className="text-zinc-500">#1 = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span></p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">Rank your top 3 by how well they fit the prompt. <span className="text-zinc-500">#1 = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span></p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-green-500 mt-0.5 text-sm leading-none">③</span>
+                    <p className="text-xs text-zinc-400 leading-relaxed">Guess who submitted each song — find out when the host reveals!</p>
                   </div>
                   <div className="flex items-start gap-2.5">
                     <span className="text-base leading-none">😊</span>
@@ -1371,7 +1375,7 @@ export default function App() {
                       <button
                         onClick={() => setExpandedComments((p) => { const n = new Set(p); n.has(song.id) ? n.delete(song.id) : n.add(song.id); return n; })}
                         className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all ml-auto ${
-                          isExpanded ? "border-zinc-600 text-zinc-300" : "border-zinc-800 text-zinc-600 hover:border-zinc-600"
+                          isExpanded ? "border-blue-500/40 text-blue-300 bg-blue-500/10" : "border-blue-500/20 text-blue-400 hover:border-blue-500/40"
                         }`}>
                         <IComment />
                         {songComments.length > 0 && <span>{songComments.length}</span>}
@@ -1381,7 +1385,7 @@ export default function App() {
                     {/* Guess who — available any time before reveal */}
                     {!identitiesRevealed && !isOwnSong && otherPlayers.length > 0 && (
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-3">
-                        <p className="text-[11px] text-zinc-600 font-medium mb-2">Who do you think submitted this?</p>
+                        <p className="text-[11px] text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
                           {otherPlayers.map((p: any) => (
                             <button key={p.id} onClick={() => setGuesses((prev) => ({ ...prev, [song.id]: p.id }))}
@@ -1437,7 +1441,7 @@ export default function App() {
                           <input maxLength={150} value={commentInputs[song.id] || ""}
                             onChange={(e) => setCommentInputs((p) => ({ ...p, [song.id]: e.target.value }))}
                             onKeyDown={(e) => e.key === "Enter" && submitComment(song.id)}
-                            placeholder={isOwnSong ? "Add a comment…" : commented ? "Add a comment…" : "Say something nice or funny 😄"}
+                            placeholder="Say something nice or funny 😂"
                             className="input flex-1 py-2 text-xs" />
                           <button onClick={() => submitComment(song.id)} disabled={!(commentInputs[song.id] || "").trim()}
                             className="px-3 py-2 text-xs font-semibold rounded-xl bg-green-500 text-black disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 transition-all">Post</button>
