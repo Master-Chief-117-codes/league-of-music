@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendSms } from "@/lib/twilio";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,18 +41,8 @@ export async function POST(req: Request) {
     const allLocked = [...memberIds].every((id) => lockedIds.has(id));
 
     if (allLocked && memberIds.size > 0) {
-      const leagueName = (week as any).leagues?.name ?? "League of Music";
-      const hostId = (week as any).leagues?.created_by;
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
       await admin.from("weeks").update({ sms_7_sent: true }).eq("id", weekId);
-
-      if (hostId) {
-        const { data: host } = await admin.from("profiles").select("phone, email").eq("id", hostId).single();
-        if (host?.phone) {
-          sendSms(host.phone, `🔒 All votes locked in for ${leagueName}! Ready to reveal? ${appUrl}`).catch(() => {});
-        }
-      }
+      // Host sees the updated UI via realtime; no additional notification needed
     }
   }
 

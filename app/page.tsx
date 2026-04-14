@@ -1522,6 +1522,34 @@ export default function App() {
                         New Round
                       </button>
                     </div>
+                    {/* Manual notification shortcuts */}
+                    {week && isPendingPrompt && (
+                      <button onClick={() => {
+                        const msg = `🎵 Hey ${promptAuthorName}, it's your turn to pick the prompt for ${selectedLeague?.name}! You have 24 hours. ${window.location.origin}`;
+                        window.open(`sms:?body=${encodeURIComponent(msg)}`);
+                      }}
+                        className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                        📱 Text {promptAuthorName} — their turn
+                      </button>
+                    )}
+                    {week?.all_submitted_at && !identitiesRevealed && (
+                      <button onClick={() => {
+                        const msg = `🎵 All songs are in for ${selectedLeague?.name}! 48 hours to comment and vote. ${window.location.origin}`;
+                        window.open(`sms:?body=${encodeURIComponent(msg)}`);
+                      }}
+                        className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                        📱 Text group — songs are in
+                      </button>
+                    )}
+                    {identitiesRevealed && (
+                      <button onClick={() => {
+                        const msg = `🎉 Votes revealed for ${selectedLeague?.name}! See who won. ${window.location.origin}`;
+                        window.open(`sms:?body=${encodeURIComponent(msg)}`);
+                      }}
+                        className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                        📱 Text group — results are in
+                      </button>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <button onClick={generateInviteLink}
                         className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">

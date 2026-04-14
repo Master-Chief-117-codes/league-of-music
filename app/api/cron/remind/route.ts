@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendSms } from "@/lib/twilio";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,13 +32,10 @@ export async function GET(req: Request) {
 
     for (const week of weeks || []) {
       const { data: author } = await admin
-        .from("profiles").select("phone, email, name").eq("id", week.prompt_author_id).single();
+        .from("profiles").select("email, name").eq("id", week.prompt_author_id).single();
       const leagueName = (week as any).leagues?.name ?? "League of Music";
 
-      if (author?.phone) {
-        await sendSms(author.phone, `⏰ 1 hour left to create a prompt for ${leagueName}! ${appUrl}`);
-        results.push(`#2 SMS → ${author.name}`);
-      } else if (author?.email) {
+      if (author?.email) {
         await sendEmail(author.email, `⏰ 1 hour left to submit your prompt — ${leagueName}`,
           `<p>Hey ${author.name}, you have about 1 hour left to submit this week's prompt for <strong>${leagueName}</strong>.</p>`, appUrl);
         results.push(`#2 email → ${author.name}`);
@@ -72,10 +68,7 @@ export async function GET(req: Request) {
       if (pendingIds.length) {
         const { data: profiles } = await admin.from("profiles").select("phone, email, name").in("id", pendingIds);
         for (const p of profiles || []) {
-          if (p.phone) {
-            await sendSms(p.phone, `⏰ 1 hour left to submit your song for "${week.prompt}" — ${leagueName}! ${appUrl}`);
-            results.push(`#4 SMS → ${p.name}`);
-          } else if (p.email) {
+          if (p.email) {
             await sendEmail(p.email, `⏰ 1 hour left to submit — ${leagueName}`,
               `<p>Hey ${p.name}! 1 hour left to submit your song for <strong>${week.prompt}</strong> in ${leagueName}.</p>`, appUrl);
             results.push(`#4 email → ${p.name}`);
@@ -105,14 +98,11 @@ export async function GET(req: Request) {
       const { data: members } = await admin.from("league_members").select("user_id").eq("league_id", week.league_id);
       const memberIds = (members || []).map((m: any) => m.user_id);
       const { data: profiles } = memberIds.length
-        ? await admin.from("profiles").select("phone, email, name").in("id", memberIds)
+        ? await admin.from("profiles").select("email, name").in("id", memberIds)
         : { data: [] };
 
       for (const p of profiles || []) {
-        if (p.phone) {
-          await sendSms(p.phone, `🎵 Songs are in for ${leagueName}! 48 hours to comment and vote. ${appUrl}`);
-          results.push(`#5 fallback SMS → ${p.name}`);
-        } else if (p.email) {
+        if (p.email) {
           await sendEmail(p.email, `🎵 Submissions closed — time to vote! (${leagueName})`,
             `<p>Submissions are closed for <strong>${leagueName}</strong>. Head over to comment and vote — 48 hours!</p>`, appUrl);
           results.push(`#5 fallback email → ${p.name}`);
@@ -144,12 +134,9 @@ export async function GET(req: Request) {
       const pendingIds = (members || []).map((m: any) => m.user_id).filter((id: string) => !lockedIds.has(id));
 
       if (pendingIds.length) {
-        const { data: profiles } = await admin.from("profiles").select("phone, email, name").in("id", pendingIds);
+        const { data: profiles } = await admin.from("profiles").select("email, name").in("id", pendingIds);
         for (const p of profiles || []) {
-          if (p.phone) {
-            await sendSms(p.phone, `⏰ 1 hour left to lock in your votes for ${leagueName}! ${appUrl}`);
-            results.push(`#6 SMS → ${p.name}`);
-          } else if (p.email) {
+          if (p.email) {
             await sendEmail(p.email, `⏰ 1 hour left to vote — ${leagueName}`,
               `<p>Hey ${p.name}! 1 hour left to lock in your votes for <strong>${leagueName}</strong>.</p>`, appUrl);
             results.push(`#6 email → ${p.name}`);
@@ -178,11 +165,8 @@ export async function GET(req: Request) {
       await admin.from("weeks").update({ sms_7_sent: true }).eq("id", week.id);
 
       if (hostId) {
-        const { data: host } = await admin.from("profiles").select("phone, email, name").eq("id", hostId).single();
-        if (host?.phone) {
-          await sendSms(host.phone, `🔒 Voting window closed for ${leagueName}! Ready to reveal? ${appUrl}`);
-          results.push(`#7 fallback SMS → ${host.name}`);
-        } else if (host?.email) {
+        const { data: host } = await admin.from("profiles").select("email, name").eq("id", hostId).single();
+        if (host?.email) {
           await sendEmail(host.email, `🔒 Voting closed — time to reveal! (${leagueName})`,
             `<p>The 48-hour voting window for <strong>${leagueName}</strong> has passed. Head over to reveal the results!</p>`, appUrl);
           results.push(`#7 fallback email → ${host.name}`);

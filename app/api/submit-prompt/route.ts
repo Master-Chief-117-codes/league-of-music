@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendSms } from "@/lib/twilio";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,16 +53,10 @@ export async function POST(req: Request) {
       .from("league_members").select("user_id").eq("league_id", week.league_id);
     const memberIds = (members || []).map((m: any) => m.user_id);
     const { data: profiles } = memberIds.length
-      ? await admin.from("profiles").select("email, phone").in("id", memberIds)
+      ? await admin.from("profiles").select("email").in("id", memberIds)
       : { data: [] };
 
-    const smsMsg = `🎵 ${leagueName}: This round's prompt is ready — "${prompt.trim()}"! 24 hours to submit a song. ${appUrl}`;
-    const emailAddrs: string[] = [];
-
-    for (const p of profiles || []) {
-      if (p.phone) sendSms(p.phone, smsMsg).catch(() => {});
-      else if (p.email) emailAddrs.push(p.email);
-    }
+    const emailAddrs = (profiles || []).map((p: any) => p.email).filter(Boolean);
 
     if (emailAddrs.length) {
       fetch("https://api.resend.com/emails", {

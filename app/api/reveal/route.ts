@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendSms } from "@/lib/twilio";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,19 +68,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // SMS #8 to everyone in the league (fire and forget)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const msg = `🎉 Votes revealed for ${league.name}! See who won. ${appUrl}`;
-
-  const { data: members } = await admin.from("league_members").select("user_id").eq("league_id", leagueId);
-  const memberIds = (members || []).map((m: any) => m.user_id);
-  const { data: profiles } = memberIds.length
-    ? await admin.from("profiles").select("phone").in("id", memberIds)
-    : { data: [] };
-
-  for (const p of profiles || []) {
-    if (p.phone) sendSms(p.phone, msg).catch(() => {});
-  }
-
+  // Host manually texts the group after revealing (see host panel in the UI)
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendSms } from "@/lib/twilio";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,17 +73,5 @@ async function fireAllSubmitted(weekId: string, leagueId: string, week: any) {
   const now = new Date().toISOString();
   await admin.from("weeks").update({ sms_5_sent: true, all_submitted_at: now }).eq("id", weekId);
 
-  const leagueName = week.leagues?.name ?? "League of Music";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const msg = `🎵 All songs are in for ${leagueName}! 48 hours to comment and vote. ${appUrl}`;
-
-  const { data: members } = await admin.from("league_members").select("user_id").eq("league_id", leagueId);
-  const memberIds = (members || []).map((m: any) => m.user_id);
-  const { data: profiles } = memberIds.length
-    ? await admin.from("profiles").select("phone, email").in("id", memberIds)
-    : { data: [] };
-
-  for (const p of profiles || []) {
-    if (p.phone) sendSms(p.phone, msg).catch(() => {});
-  }
+  // Host manually texts the group when all songs are in (see host panel in the UI)
 }
