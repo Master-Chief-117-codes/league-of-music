@@ -1488,11 +1488,22 @@ export default function App() {
                         className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
                         Copy Invite Link
                       </button>
-                      {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && identitiesRevealed && submissions.length > 0 && (
-                        <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
-                          className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                          {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}
-                        </button>
+                      {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
+                        identitiesRevealed && submissions.length > 0 ? (
+                          <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
+                            className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                            {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}
+                          </button>
+                        ) : hasSpotifyConnection ? (
+                          <div className="py-3 text-xs font-semibold rounded-xl border border-green-500/20 text-green-500/60 text-center">
+                            Spotify ✓
+                          </div>
+                        ) : (
+                          <button onClick={startSpotifyAuth}
+                            className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 transition-colors">
+                            Connect Spotify
+                          </button>
+                        )
                       )}
                     </div>
                     <button onClick={() => setTransferring(true)}
