@@ -219,6 +219,7 @@ export default function App() {
 
   /* ── Host controls ── */
   const [transferring, setTransferring] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const userIdRef = useRef("");
   useEffect(() => { if (session?.user?.id) userIdRef.current = session.user.id; }, [session]);
@@ -822,25 +823,11 @@ export default function App() {
     const body = await res.json();
     if (!res.ok || !body.token) { toast("Failed to generate invite link", "error"); return; }
     const link = `${window.location.origin}/join/${body.token}`;
-    // On mobile (especially Safari), clipboard writes after async calls silently fail.
-    // Use native share sheet when available — it's the most reliable path on iOS.
-    if (navigator.share) {
-      navigator.share({ title: "Join " + (selectedLeague?.name ?? "League of Music"), url: link }).catch(() => {});
-    } else {
-      try {
-        await navigator.clipboard.writeText(link);
-      } catch {
-        const el = document.createElement("input");
-        el.value = link;
-        el.setAttribute("readonly", "");
-        el.style.cssText = "position:fixed;opacity:0;top:0;left:0";
-        document.body.appendChild(el);
-        el.focus();
-        el.setSelectionRange(0, 9999);
-        document.execCommand("copy");
-        document.body.removeChild(el);
-      }
-      toast("Invite link copied!", "success");
+    // Show the link in a modal — reliable on all browsers including mobile Safari.
+    // Also attempt clipboard copy on desktop as a convenience.
+    setInviteLink(link);
+    if (!navigator.share) {
+      try { await navigator.clipboard.writeText(link); } catch {}
     }
   };
 
@@ -1123,7 +1110,10 @@ export default function App() {
   }
 
   /* ─────────────────────── Main app ─────────────────────── */
-  const sorted = [...submissions].sort((a, b) => (voteScores[b.id] || 0) - (voteScores[a.id] || 0));
+  // Pre-reveal: keep submission order. Post-reveal: sort by score.
+  const sorted = identitiesRevealed
+    ? [...submissions].sort((a, b) => (voteScores[b.id] || 0) - (voteScores[a.id] || 0))
+    : [...submissions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const maxScore = submissions.length ? Math.max(0, ...submissions.map((s) => voteScores[s.id] || 0)) : 0;
   const selectedLeague = myLeagues.find((l: any) => l.id === selectedLeagueId) ?? null;
   const isHost = selectedLeague?.created_by === session?.user?.id;
@@ -1303,8 +1293,7 @@ export default function App() {
                     {/* Header row */}
                     <div className="flex items-center justify-between px-4 pt-3 pb-2">
                       <div className="flex items-center gap-2">
-                        {/* No leader styling pre-reveal */}
-                        <span className="text-xs font-bold tabular-nums text-zinc-600">#{index + 1}</span>
+                        {identitiesRevealed && <span className="text-xs font-bold tabular-nums text-zinc-600">#{index + 1}</span>}
                         {isWinner && (
                           <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
                         )}
@@ -1332,9 +1321,7 @@ export default function App() {
                       {identitiesRevealed ? (
                         <span className="text-sm font-bold text-green-400 tabular-nums">{fmtScore(score)} pts</span>
                       ) : (
-                        <span className="text-sm text-zinc-600 tabular-nums">
-                          {rawCount > 0 ? `${rawCount} ranked` : "—"}
-                        </span>
+                        <span />
                       )}
 
                       {isOwnSong ? (
@@ -1394,7 +1381,7 @@ export default function App() {
                     {/* Guess who — available any time before reveal */}
                     {!identitiesRevealed && !isOwnSong && otherPlayers.length > 0 && (
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-3">
-                        <p className="text-[11px] text-zinc-600 font-medium mb-2">Who submitted this?</p>
+                        <p className="text-[11px] text-zinc-600 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
                           {otherPlayers.map((p: any) => (
                             <button key={p.id} onClick={() => setGuesses((prev) => ({ ...prev, [song.id]: p.id }))}
@@ -1453,7 +1440,7 @@ export default function App() {
                             placeholder={isOwnSong ? "Add a comment…" : commented ? "Add a comment…" : "Say something nice or funny 😄"}
                             className="input flex-1 py-2 text-xs" />
                           <button onClick={() => submitComment(song.id)} disabled={!(commentInputs[song.id] || "").trim()}
-                            className="btn-primary px-3 py-2 text-xs flex-shrink-0">Post</button>
+                            className="px-3 py-2 text-xs font-semibold rounded-xl bg-green-500 text-black disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 transition-all">Post</button>
                         </div>
                       </div>
                     )}
@@ -1484,11 +1471,11 @@ export default function App() {
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       <button onClick={revealIdentities} disabled={!week || identitiesRevealed}
-                        className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-purple-500/40 hover:text-purple-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                        className="py-3 text-xs font-semibold rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
                         Reveal
                       </button>
                       <button onClick={startNewRound} disabled={isPendingPrompt}
-                        className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                        className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
                         New Round
                       </button>
                     </div>
@@ -1617,6 +1604,33 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Invite link modal — most reliable cross-browser way to share on mobile */}
+      {inviteLink && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setInviteLink(null)}>
+          <div className="w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <p className="text-sm font-semibold text-white mb-1">Invite link</p>
+              <p className="text-xs text-zinc-500">Tap the link below to copy, or use the share button.</p>
+            </div>
+            <input readOnly value={inviteLink}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-green-400 font-mono select-all"
+              onFocus={(e) => e.target.select()} />
+            <div className="flex gap-2">
+              {navigator.share && (
+                <button onClick={() => navigator.share!({ title: selectedLeague?.name ?? "League of Music", url: inviteLink }).catch(() => {})}
+                  className="flex-1 py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 transition-all active:scale-95">
+                  Share…
+                </button>
+              )}
+              <button onClick={() => setInviteLink(null)}
+                className="flex-1 py-3 text-xs font-semibold rounded-xl border border-zinc-700 text-zinc-400 hover:text-white transition-colors">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
