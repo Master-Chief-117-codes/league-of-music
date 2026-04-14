@@ -822,21 +822,26 @@ export default function App() {
     const body = await res.json();
     if (!res.ok || !body.token) { toast("Failed to generate invite link", "error"); return; }
     const link = `${window.location.origin}/join/${body.token}`;
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      // Fallback for mobile browsers that block clipboard API
-      const el = document.createElement("textarea");
-      el.value = link;
-      el.style.position = "fixed";
-      el.style.opacity = "0";
-      document.body.appendChild(el);
-      el.focus();
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
+    // On mobile (especially Safari), clipboard writes after async calls silently fail.
+    // Use native share sheet when available — it's the most reliable path on iOS.
+    if (navigator.share) {
+      navigator.share({ title: "Join " + (selectedLeague?.name ?? "League of Music"), url: link }).catch(() => {});
+    } else {
+      try {
+        await navigator.clipboard.writeText(link);
+      } catch {
+        const el = document.createElement("input");
+        el.value = link;
+        el.setAttribute("readonly", "");
+        el.style.cssText = "position:fixed;opacity:0;top:0;left:0";
+        document.body.appendChild(el);
+        el.focus();
+        el.setSelectionRange(0, 9999);
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      toast("Invite link copied!", "success");
     }
-    toast("Invite link copied!", "success");
   };
 
   const shareRound = async () => {
@@ -1222,13 +1227,24 @@ export default function App() {
 
             {/* How-to-play banner — shown once round is active */}
             {week && !isPendingPrompt && !identitiesRevealed && (
-              <div className="flex items-start gap-2.5 px-4 py-3.5 bg-zinc-950 border border-zinc-800/50 rounded-2xl">
-                <span className="text-base leading-none mt-0.5">😊</span>
-                <div className="text-xs text-zinc-500 leading-relaxed space-y-0.5">
-                  <span className="block">Listen to each song and drop a comment — something funny, something nice, anything goes.</span>
-                  <span className="block text-zinc-600">You must comment on a song before you can rank it.</span>
-                  <span className="block text-zinc-600">Rank your top 3: <span className="text-zinc-500">#1 = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span></span>
-                  <span className="block text-zinc-700 pt-0.5">There's technically a winner — but the real prize is the music we shared along the way. 🎵</span>
+              <div className="rounded-2xl overflow-hidden border border-zinc-800/60 bg-gradient-to-br from-zinc-950 to-black">
+                <div className="px-4 py-3 border-b border-zinc-800/40 flex items-center gap-2">
+                  <span className="text-sm">🎵</span>
+                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">How to play</p>
+                </div>
+                <div className="px-4 py-3.5 space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-green-500 mt-0.5 text-sm leading-none">①</span>
+                    <p className="text-xs text-zinc-400 leading-relaxed">Listen to each song and drop a comment — funny, nice, or both. <span className="text-zinc-500">You must comment before you can vote.</span></p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-green-500 mt-0.5 text-sm leading-none">②</span>
+                    <p className="text-xs text-zinc-400 leading-relaxed">Rank your top 3. <span className="text-zinc-500">#1 = 2 pts · #2 = 1.5 pts · #3 = 1 pt</span></p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base leading-none">😊</span>
+                    <p className="text-xs text-zinc-600 leading-relaxed italic">There's technically a winner — but the real prize is the music we shared along the way.</p>
+                  </div>
                 </div>
               </div>
             )}
