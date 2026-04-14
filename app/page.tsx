@@ -135,6 +135,7 @@ export default function App() {
   const [requestingLeague, setRequestingLeague] = useState(false);
   const [newLeagueName, setNewLeagueName] = useState("");
   const [leagueRequested, setLeagueRequested] = useState(false);
+  const [wentBack, setWentBack] = useState(false); // prevents auto-reselect after user taps back
 
   /* ── Round ── */
   const [week, setWeek] = useState<any>(null);
@@ -313,13 +314,13 @@ export default function App() {
     });
   }, [session, needsProfile]);
 
-  /* ── Auto-select if exactly one league ── */
+  /* ── Auto-select if exactly one league (skip if user explicitly went back) ── */
   useEffect(() => {
-    if (selectedLeagueId || myLeagues.length !== 1) return;
+    if (selectedLeagueId || wentBack || myLeagues.length !== 1) return;
     const id = myLeagues[0].id;
     setSelectedLeagueId(id);
     localStorage.setItem("last_league", id);
-  }, [myLeagues, selectedLeagueId]);
+  }, [myLeagues, selectedLeagueId, wentBack]);
 
   const createProfile = async () => {
     if (!session || !name.trim()) return;
@@ -1056,7 +1057,7 @@ export default function App() {
               <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Your Leagues</p>
               {myLeagues.map((league: any) => (
                 <button key={league.id}
-                  onClick={() => { setSelectedLeagueId(league.id); localStorage.setItem("last_league", league.id); }}
+                  onClick={() => { setSelectedLeagueId(league.id); setWentBack(false); localStorage.setItem("last_league", league.id); }}
                   className="w-full flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-4 hover:border-zinc-700 transition-colors text-left active:scale-[.99]">
                   <div>
                     <p className="font-semibold text-white">{league.name}</p>
@@ -1138,7 +1139,7 @@ export default function App() {
       <header className="sticky top-0 z-20 bg-black/90 backdrop-blur-xl border-b border-zinc-900">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <button onClick={() => { setSelectedLeagueId(null); localStorage.removeItem("last_league"); }}
+            <button onClick={() => { setSelectedLeagueId(null); setWentBack(true); localStorage.removeItem("last_league"); }}
               className="p-1 text-zinc-600 hover:text-white transition-colors flex-shrink-0" aria-label="Back to leagues">
               <IChevLeft />
             </button>
