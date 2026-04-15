@@ -1343,10 +1343,10 @@ export default function App() {
                 <div className="px-4 py-4 space-y-4">
                   {[
                     { n: "1", title: "Submit a song!", sub: null },
-                    { n: "2", title: "Submissions revealed", sub: "Listen to each song and drop a comment — funny, nice, or both." },
-                    { n: "3", title: "Then vote", sub: "Rank your top 3 by how well they fit the prompt. You must comment before you can vote." },
-                    { n: "4", title: "Guess who submitted each song", sub: "This is just for fun — find out when the votes are revealed!" },
-                    { n: "5", title: "Votes revealed!", sub: null },
+                    { n: "2", title: "Host reveals all songs at once", sub: "Songs stay hidden until everyone has submitted." },
+                    { n: "3", title: "Listen, comment & vote", sub: "Rank your top 3 by how well they fit the prompt. You must comment before you can vote." },
+                    { n: "4", title: "Guess who submitted each song", sub: "This is just for fun!" },
+                    { n: "5", title: "Scores tallied!", sub: null },
                   ].map(({ n, title, sub }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1358,7 +1358,7 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <p className="text-sm text-zinc-400 italic pl-8">There's technically a winner — but the real prize is the music we shared along the way. 😊</p>
+                  <p className="text-sm text-zinc-400 italic pl-8">There&apos;s technically a winner — but the real prize is the music we shared along the way. 😊</p>
                 </div>
               </div>
             )}
@@ -1381,36 +1381,46 @@ export default function App() {
               )
             )}
 
-            {week && !isPendingPrompt && !submissionsLocked && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-600">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
+            {/* Submission count + waiting state */}
+            {week && !isPendingPrompt && !identitiesRevealed && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
+                  {submissions.length > 0 && submissions.length < Object.keys(profilesMap).length && (
+                    <span className="text-xs text-zinc-700">waiting on {Object.keys(profilesMap).length - submissions.length} more…</span>
+                  )}
+                </div>
+                {submissionsLocked && (
+                  <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-zinc-800/60 bg-zinc-950">
+                    <span className="text-lg">🔒</span>
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-300">All songs are in!</p>
+                      <p className="text-xs text-zinc-600">Waiting for the host to reveal…</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Lock in votes button */}
-            {!identitiesRevealed && Object.keys(myRanks).length > 0 && (
-              isLockedIn ? (
-                <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
-                  <span className="text-green-400 text-sm">✓</span>
-                  <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
-                </div>
-              ) : (
-                <button onClick={lockInVotes}
-                  className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
-                  Lock in votes
-                </button>
-              )
-            )}
-
-            {/* Song cards */}
+            {/* Song cards — only visible after reveal */}
             <div className="space-y-3">
-              {sorted.length === 0 && week && !isPendingPrompt && (
-                <div className="py-12 text-center"><p className="text-zinc-700 text-xs">Be the first to drop a track.</p></div>
-              )}
-              {sorted.length === 0 && week && isPendingPrompt && (
+              {week && isPendingPrompt && (
                 <div className="py-12 text-center"><p className="text-zinc-600 text-sm">Round starts once the prompt is submitted.</p></div>
               )}
-              {sorted.map((song, index) => {
+              {identitiesRevealed && Object.keys(myRanks).length > 0 && (
+                isLockedIn ? (
+                  <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
+                    <span className="text-green-400 text-sm">✓</span>
+                    <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
+                  </div>
+                ) : (
+                  <button onClick={lockInVotes}
+                    className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
+                    Lock in votes
+                  </button>
+                )
+              )}
+              {identitiesRevealed && sorted.map((song, index) => {
                 const trackId = getTrackId(song.spotify_url ?? "") ?? "";
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
