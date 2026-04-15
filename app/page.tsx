@@ -222,6 +222,8 @@ export default function App() {
 
   /* ── Host controls ── */
   const [transferring, setTransferring] = useState(false);
+  const [renamingLeague, setRenamingLeague] = useState(false);
+  const [renameInput, setRenameInput] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const userIdRef = useRef("");
@@ -865,6 +867,16 @@ export default function App() {
     setRequestingLeague(false);
     setNewLeagueName("");
     setPendingRequests((p) => [...p, { id: Date.now(), name: newLeagueName.trim(), status: "pending" }]);
+  };
+
+  const renameLeague = async () => {
+    if (!selectedLeagueId || !renameInput.trim() || !session) return;
+    const { error } = await supabase.from("leagues").update({ name: renameInput.trim() }).eq("id", selectedLeagueId);
+    if (error) { toast("Failed to rename", "error"); return; }
+    setMyLeagues((prev) => prev.map((l) => l.id === selectedLeagueId ? { ...l, name: renameInput.trim() } : l));
+    setRenamingLeague(false);
+    setRenameInput("");
+    toast("League renamed!", "success");
   };
 
   const transferHost = async (newHostId: string) => {
@@ -1553,6 +1565,18 @@ export default function App() {
                     {/* League */}
                     <div className="space-y-2">
                       <p className="text-[10px] text-zinc-600 uppercase tracking-widest">League</p>
+                      {renamingLeague ? (
+                        <div className="flex gap-2">
+                          <input value={renameInput} onChange={(e) => setRenameInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && renameLeague()} placeholder={selectedLeague?.name} maxLength={40} className="input flex-1 min-w-0 text-sm" autoFocus />
+                          <button onClick={renameLeague} disabled={!renameInput.trim()} className="btn-primary px-4 text-xs">Save</button>
+                          <button onClick={() => setRenamingLeague(false)} className="px-3 text-xs text-zinc-500 hover:text-white transition-colors">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setRenameInput(selectedLeague?.name ?? ""); setRenamingLeague(true); }}
+                          className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors">
+                          Rename League
+                        </button>
+                      )}
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={generateInviteLink}
                           className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
