@@ -8,13 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-const normalizePhone = (raw: string): string | null => {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits[0] === "1") return `+${digits}`;
-  if (digits.length > 7) return `+${digits}`;
-  return null;
-};
 
 const EMOJIS = ["🔥", "❤️", "😂"] as const;
 const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1 };
@@ -171,14 +164,12 @@ export default function App() {
   const [editArtist1, setEditArtist1] = useState("");
   const [editArtist2, setEditArtist2] = useState("");
   const [editOnRepeat, setEditOnRepeat] = useState("");
-  const [editPhone, setEditPhone] = useState("");
 
   /* ── Onboarding form ── */
   const [name, setName] = useState("");
   const [artist1, setArtist1] = useState("");
   const [artist2, setArtist2] = useState("");
   const [onRepeat, setOnRepeat] = useState("");
-  const [phone, setPhone] = useState("");
 
   /* ── Ranked voting ── */
   const [myRanks, setMyRanks] = useState<Record<string, number>>({});      // submissionId -> rank (1/2/3)
@@ -335,7 +326,6 @@ export default function App() {
 
   const createProfile = async () => {
     if (!session || !name.trim()) return;
-    const normalizedPhone = phone.trim() ? normalizePhone(phone.trim()) : null;
     const { error } = await supabase.from("profiles").insert({
       id: session.user.id,
       email: session.user.email,
@@ -343,7 +333,6 @@ export default function App() {
       top_artists: [artist1, artist2].filter(Boolean).join(", "),
       on_repeat: onRepeat,
       wins: 0,
-      ...(normalizedPhone ? { phone: normalizedPhone } : {}),
     });
     if (error) return alert(error.message);
     const pendingLeagueId = localStorage.getItem("pending_league_id");
@@ -361,10 +350,9 @@ export default function App() {
     const a2 = editArtist2.trim() || existingParts[1] || "";
     const top_artists = [a1, a2].filter(Boolean).join(", ");
     const on_repeat = editOnRepeat.trim() || profile?.on_repeat || "";
-    const normalizedPhone = editPhone.trim() ? normalizePhone(editPhone.trim()) : (profile?.phone ?? null);
-    const { error } = await supabase.from("profiles").update({ name: editName.trim(), top_artists, on_repeat, phone: normalizedPhone }).eq("id", session.user.id);
+    const { error } = await supabase.from("profiles").update({ name: editName.trim(), top_artists, on_repeat }).eq("id", session.user.id);
     if (error) { toast("Failed to save", "error"); return; }
-    const updated = { ...profile, name: editName.trim(), top_artists, on_repeat, phone: normalizedPhone };
+    const updated = { ...profile, name: editName.trim(), top_artists, on_repeat };
     setProfile(updated);
     setProfilesMap((p) => ({ ...p, [session.user.id]: updated }));
     setEditingProfile(false);
@@ -696,6 +684,17 @@ export default function App() {
     window.location.reload();
   };
 
+  const closeSubmissions = async () => {
+    if (!week || !selectedLeagueId || !session) return;
+    const res = await fetch("/api/close-submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
+    });
+    if (!res.ok) { toast("Failed to close submissions", "error"); return; }
+    toast("Submissions closed — emails sent!", "success");
+  };
+
   const submitPrompt = async () => {
     const text = promptInput.trim();
     if (!text || !week) return;
@@ -967,12 +966,8 @@ export default function App() {
             <Field label="Song on repeat">
               <input maxLength={60} placeholder="Super Bass – Nicki Minaj" value={onRepeat} onChange={(e) => setOnRepeat(e.target.value)} className="input" />
             </Field>
-            <Field label="Phone number (optional)">
-              <input type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} className="input" />
-              <p className="text-[11px] text-zinc-600 mt-1.5">For SMS reminders like "1 hour left to submit your song"</p>
-            </Field>
           </div>
-          <button onClick={createProfile} disabled={!name.trim() || !phone.trim()} className="btn-primary w-full">Join the League</button>
+          <button onClick={createProfile} disabled={!name.trim()} className="btn-primary w-full">Join the League</button>
         </div>
       </div>
     );
@@ -993,7 +988,7 @@ export default function App() {
               <IChevLeft /> Back
             </button>
             {isOwn && !editingProfile && (
-              <button onClick={() => { setEditName(viewed.name); setEditArtist1(""); setEditArtist2(""); setEditOnRepeat(""); setEditPhone(""); setEditingProfile(true); }}
+              <button onClick={() => { setEditName(viewed.name); setEditArtist1(""); setEditArtist2(""); setEditOnRepeat(""); setEditingProfile(true); }}
                 className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full">
                 <IEdit /> Edit
               </button>
@@ -1019,10 +1014,6 @@ export default function App() {
               </Field>
               <Field label="Song on repeat">
                 <input maxLength={60} placeholder={viewed.on_repeat || "Song – Artist"} value={editOnRepeat} onChange={(e) => setEditOnRepeat(e.target.value)} className="input" />
-              </Field>
-              <Field label="Phone number (optional)">
-                <input type="tel" placeholder={viewed.phone || "+1 (555) 000-0000"} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="input" />
-                <p className="text-[11px] text-zinc-600 mt-1.5">For SMS reminders — leave blank to keep current</p>
               </Field>
               <div className="flex gap-2 pt-2">
                 <button onClick={saveProfile} disabled={!editName.trim()} className="btn-primary flex-1">Save</button>
@@ -1494,8 +1485,9 @@ export default function App() {
 
             {/* Host controls */}
             {isHost && (
-              <div className="pt-8 border-t border-zinc-900 mt-4 space-y-2">
-                <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest mb-3">Host Controls</p>
+              <div className="pt-8 border-t border-zinc-900 mt-4 space-y-5">
+                <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Host Controls</p>
+
                 {transferring ? (
                   <div className="space-y-1.5">
                     <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">Transfer ownership to:</p>
@@ -1512,71 +1504,81 @@ export default function App() {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={revealIdentities} disabled={!week || identitiesRevealed}
-                        className="py-3 text-xs font-semibold rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
-                        Reveal
-                      </button>
-                      <button onClick={startNewRound} disabled={isPendingPrompt}
-                        className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
-                        New Round
-                      </button>
-                    </div>
-                    {/* Manual notification shortcuts */}
-                    {week && isPendingPrompt && (
-                      <button onClick={() => {
-                        const msg = `🎵 Hey ${promptAuthorName}, it's your turn to pick the prompt for ${selectedLeague?.name}! You have 24 hours. ${window.location.origin}`;
-                        window.open(`sms:?body=${encodeURIComponent(msg)}`);
-                      }}
-                        className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
-                        📱 Text {promptAuthorName} — their turn
-                      </button>
-                    )}
-                    {week?.all_submitted_at && !identitiesRevealed && (
-                      <button onClick={() => {
-                        const msg = `🎵 All songs are in for ${selectedLeague?.name}! 48 hours to comment and vote. ${window.location.origin}`;
-                        window.open(`sms:?body=${encodeURIComponent(msg)}`);
-                      }}
-                        className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
-                        📱 Text group — songs are in
-                      </button>
-                    )}
-                    {identitiesRevealed && (
-                      <button onClick={() => {
-                        const msg = `🎉 Votes revealed for ${selectedLeague?.name}! See who won. ${window.location.origin}`;
-                        window.open(`sms:?body=${encodeURIComponent(msg)}`);
-                      }}
-                        className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
-                        📱 Text group — results are in
-                      </button>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={generateInviteLink}
-                        className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
-                        Copy Invite Link
-                      </button>
-                      {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
-                        identitiesRevealed && submissions.length > 0 ? (
-                          <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
-                            className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                            {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}
-                          </button>
-                        ) : hasSpotifyConnection ? (
-                          <div className="py-3 text-xs font-semibold rounded-xl border border-green-500/20 text-green-500/60 text-center">
-                            Spotify ✓
-                          </div>
-                        ) : (
-                          <button onClick={startSpotifyAuth}
-                            className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 transition-colors">
-                            Connect Spotify
-                          </button>
-                        )
+                    {/* Round actions */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Round</p>
+                      {week && !submissionsLocked && !isPendingPrompt && (
+                        <button onClick={closeSubmissions}
+                          className="w-full py-3 text-xs font-semibold rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition-all active:scale-95">
+                          Close Submissions
+                        </button>
                       )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={revealIdentities} disabled={!week || identitiesRevealed}
+                          className="py-3 text-xs font-semibold rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
+                          Reveal
+                        </button>
+                        <button onClick={startNewRound} disabled={isPendingPrompt}
+                          className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
+                          New Round
+                        </button>
+                      </div>
                     </div>
-                    <button onClick={() => setTransferring(true)}
-                      className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-amber-500/40 hover:text-amber-400 transition-colors">
-                      Transfer Ownership
-                    </button>
+
+                    {/* Notify */}
+                    {week && (isPendingPrompt || week.all_submitted_at || identitiesRevealed) && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Notify</p>
+                        {isPendingPrompt && (
+                          <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎵 Hey ${promptAuthorName}, it's your turn to pick the prompt for ${selectedLeague?.name}! You have 24 hours. ${window.location.origin}`)}`)  }
+                            className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                            📱 Text {promptAuthorName} — their turn
+                          </button>
+                        )}
+                        {week.all_submitted_at && !identitiesRevealed && (
+                          <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎵 All songs are in for ${selectedLeague?.name}! 48 hours to comment and vote. ${window.location.origin}`)}`)}
+                            className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                            📱 Text group — songs are in
+                          </button>
+                        )}
+                        {identitiesRevealed && (
+                          <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎉 Votes revealed for ${selectedLeague?.name}! See who won. ${window.location.origin}`)}`)}
+                            className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                            📱 Text group — results are in
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* League */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-widest">League</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={generateInviteLink}
+                          className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
+                          Invite Link
+                        </button>
+                        {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
+                          identitiesRevealed && submissions.length > 0 ? (
+                            <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
+                              className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                              {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}
+                            </button>
+                          ) : hasSpotifyConnection ? (
+                            <div className="py-3 text-xs font-semibold rounded-xl border border-green-500/20 text-green-500/60 text-center">Spotify ✓</div>
+                          ) : (
+                            <button onClick={startSpotifyAuth}
+                              className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 transition-colors">
+                              Connect Spotify
+                            </button>
+                          )
+                        )}
+                      </div>
+                      <button onClick={() => setTransferring(true)}
+                        className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-amber-500/40 hover:text-amber-400 transition-colors">
+                        Transfer Ownership
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
