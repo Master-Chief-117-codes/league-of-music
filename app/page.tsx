@@ -903,9 +903,15 @@ export default function App() {
 
   const renameLeague = async () => {
     if (!selectedLeagueId || !renameInput.trim() || !session) return;
-    const { error } = await supabase.from("leagues").update({ name: renameInput.trim() }).eq("id", selectedLeagueId);
-    if (error) { toast("Failed to rename", "error"); return; }
-    setMyLeagues((prev) => prev.map((l) => l.id === selectedLeagueId ? { ...l, name: renameInput.trim() } : l));
+    const trimmed = renameInput.trim();
+    const res = await fetch("/api/rename-league", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ leagueId: selectedLeagueId, name: trimmed }),
+    });
+    const json = await res.json();
+    if (!res.ok) { toast(json.error || "Failed to rename", "error"); return; }
+    setMyLeagues((prev) => prev.map((l) => l.id === selectedLeagueId ? { ...l, name: trimmed } : l));
     setRenamingLeague(false);
     setRenameInput("");
     toast("League renamed!", "success");
