@@ -1258,7 +1258,7 @@ export default function App() {
 
             {/* Prompt card */}
             {week && (
-              <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl px-4 py-4">
+              <div className="bg-indigo-300/15 border border-indigo-300/20 rounded-2xl px-4 py-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
                     {isPendingPrompt ? "Awaiting Prompt" : "This Round"}
