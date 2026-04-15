@@ -1225,10 +1225,10 @@ export default function App() {
             )}
 
             {/* Prompt submission form */}
-            {week && isPendingPrompt && (isPromptAuthor || (isHost && promptDeadlinePassed)) && (
+            {week && isPendingPrompt && (isPromptAuthor || isHost) && (
               <div className="space-y-1.5">
-                {isHost && promptDeadlinePassed && !isPromptAuthor && (
-                  <p className="text-xs text-amber-400 px-1">Deadline passed — submit a prompt on behalf of {promptAuthorName}.</p>
+                {isHost && !isPromptAuthor && (
+                  <p className="text-xs text-amber-400 px-1">{promptDeadlinePassed ? "Deadline passed —" : "As host, you can"} submit a prompt on behalf of {promptAuthorName}.</p>
                 )}
                 <div className="flex gap-2">
                   <input value={promptInput} onChange={(e) => setPromptInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitPrompt()} placeholder="e.g. Songs that hit different at 3am…" className="input flex-1 min-w-0" />
@@ -1262,7 +1262,7 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <p className="text-xs text-zinc-600 italic pl-8">There's technically a winner — but the real prize is the music we shared along the way. 😊</p>
+                  <p className="text-sm text-zinc-400 italic pl-8">There's technically a winner — but the real prize is the music we shared along the way. 😊</p>
                 </div>
               </div>
             )}
