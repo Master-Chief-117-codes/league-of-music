@@ -836,35 +836,34 @@ export default function App() {
       if (!meRes.ok) { clearSpotifyToken(); toast("Spotify reconnect required", "error"); setExportingPlaylist(false); return; }
     }
 
-    const win = window.open("about:blank", "_blank");
     try {
       const plRes = await fetch("https://api.spotify.com/v1/me/playlists", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `League of Music: ${week.prompt}`, description: "Round submissions", public: true }),
+        body: JSON.stringify({ name: `League of Music: ${week.prompt}`, description: "Round submissions", public: false }),
       });
       const playlist = await plRes.json();
       if (!playlist.id) {
-        win?.close();
-        if (plRes.status === 401 || plRes.status === 403) { clearSpotifyToken(); toast("Spotify reconnect required", "error"); }
+        if (plRes.status === 401 || plRes.status === 403) { clearSpotifyToken(); toast("Spotify reconnect required — tap Reconnect", "error"); }
         else { toast(`Playlist creation failed: ${playlist.error?.message ?? "unknown"}`, "error"); }
         return;
       }
       const { data: freshSongs } = await supabase.from("song_submissions").select("spotify_url").eq("week_id", week.id);
       const uris = (freshSongs || []).map((s: any) => getTrackId(s.spotify_url ?? "")).filter(Boolean).map((id) => `spotify:track:${id}`);
-      if (uris.length) {
-        const addRes = await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ uris }),
-        });
-        const addData = await addRes.json();
-        if (!addRes.ok) { win?.close(); toast(`Add tracks failed (${addRes.status}): ${addData.error?.message ?? JSON.stringify(addData)}`, "error"); return; }
-      } else {
-        toast("No tracks found to add", "error"); win?.close(); return;
+      if (!uris.length) { toast("No tracks found to add", "error"); return; }
+      const addRes = await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ uris }),
+      });
+      const addData = await addRes.json();
+      if (!addRes.ok) {
+        if (addRes.status === 401 || addRes.status === 403) { clearSpotifyToken(); toast("Spotify reconnect required — tap Reconnect", "error"); }
+        else { toast(`Add tracks failed: ${addData.error?.message ?? JSON.stringify(addData)}`, "error"); }
+        return;
       }
-      if (win) win.location.href = `https://open.spotify.com/playlist/${playlist.id}`;
-      toast("Playlist created!", "success");
+      toast("Playlist created! Opening…", "success");
+      window.open(`https://open.spotify.com/playlist/${playlist.id}`, "_blank");
     } catch (e: any) {
       toast("Spotify export failed: " + (e?.message ?? "unknown"), "error");
     } finally {
@@ -1265,7 +1264,7 @@ export default function App() {
                     {isPendingPrompt ? "Awaiting Prompt" : "This Round"}
                   </p>
                   <div className="flex items-center gap-3">
-                    {countdown && (
+                    {countdown && isPendingPrompt && (
                       <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-500"}`}>
                         <IClock /> {countdown}
                       </span>
@@ -1730,7 +1729,10 @@ export default function App() {
                               {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}
                             </button>
                           ) : hasSpotifyConnection ? (
-                            <div className="py-3 text-xs font-semibold rounded-xl border border-green-500/20 text-green-500/60 text-center">Spotify ✓</div>
+                            <div className="flex gap-2">
+                              <div className="flex-1 py-3 text-xs font-semibold rounded-xl border border-green-500/20 text-green-500/60 text-center">Spotify ✓</div>
+                              <button onClick={() => { clearSpotifyToken(); startSpotifyAuth(); }} className="py-3 px-3 text-xs rounded-xl border border-zinc-800 text-zinc-600 hover:text-zinc-400 transition-colors">Reconnect</button>
+                            </div>
                           ) : (
                             <button onClick={startSpotifyAuth}
                               className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 transition-colors">
