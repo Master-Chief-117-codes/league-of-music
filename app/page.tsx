@@ -89,6 +89,26 @@ async function generateCodeChallenge(verifier: string) {
   return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+/* ─── Image helpers ─── */
+async function resizeImage(file: File, size = 200): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.85);
+    };
+    img.src = url;
+  });
+}
+
 /* ─── Sub-components ─── */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -99,10 +119,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+function Avatar({ name, url, size = "md", onClick }: { name: string; url?: string | null; size?: "sm" | "md" | "lg"; onClick?: () => void }) {
   const sz = { sm: "w-5 h-5 text-[9px]", md: "w-9 h-9 text-xs", lg: "w-16 h-16 text-xl" }[size];
+  const cls = `${sz} rounded-full flex-shrink-0 ${onClick ? "cursor-pointer hover:opacity-75 transition-opacity" : ""}`;
+  if (url) return <img src={url} alt={name} onClick={onClick} className={`${cls} object-cover`} />;
   return (
-    <div className={`${sz} rounded-full bg-green-500/15 border border-green-500/25 flex items-center justify-center font-bold text-green-400 flex-shrink-0`}>
+    <div onClick={onClick} className={`${cls} bg-green-500/15 border border-green-500/25 flex items-center justify-center font-bold text-green-400`}>
       {initials(name)}
     </div>
   );
@@ -164,6 +186,7 @@ export default function App() {
   const [editArtist1, setEditArtist1] = useState("");
   const [editArtist2, setEditArtist2] = useState("");
   const [editOnRepeat, setEditOnRepeat] = useState("");
+  const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
 
   /* ── Onboarding form ── */
   const [name, setName] = useState("");
@@ -326,6 +349,17 @@ export default function App() {
     localStorage.setItem("last_league", id);
   }, [myLeagues, selectedLeagueId, wentBack]);
 
+  const uploadAvatar = async (file: File): Promise<string | null> => {
+    if (!session) return null;
+    const blob = await resizeImage(file);
+    const path = `${session.user.id}/avatar.jpg`;
+    const { error } = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+    if (error) { toast("Failed to upload photo", "error"); return null; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    // Bust cache with timestamp
+    return `${data.publicUrl}?t=${Date.now()}`;
+  };
+
   const createProfile = async () => {
     if (!session || !name.trim()) return;
     const { error } = await supabase.from("profiles").insert({
@@ -352,11 +386,13 @@ export default function App() {
     const a2 = editArtist2.trim() || existingParts[1] || "";
     const top_artists = [a1, a2].filter(Boolean).join(", ");
     const on_repeat = editOnRepeat.trim() || profile?.on_repeat || "";
-    const { error } = await supabase.from("profiles").update({ name: editName.trim(), top_artists, on_repeat }).eq("id", session.user.id);
+    const avatar_url = editAvatarPreview ?? profile?.avatar_url ?? null;
+    const { error } = await supabase.from("profiles").update({ name: editName.trim(), top_artists, on_repeat, avatar_url }).eq("id", session.user.id);
     if (error) { toast("Failed to save", "error"); return; }
-    const updated = { ...profile, name: editName.trim(), top_artists, on_repeat };
+    const updated = { ...profile, name: editName.trim(), top_artists, on_repeat, avatar_url };
     setProfile(updated);
     setProfilesMap((p) => ({ ...p, [session.user.id]: updated }));
+    setEditAvatarPreview(null);
     setEditingProfile(false);
     toast("Profile updated!", "success");
   };
@@ -1007,15 +1043,30 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-xl font-bold text-green-400 flex-shrink-0">
-              {initials(viewed.name)}
+            <div className="relative flex-shrink-0">
+              <Avatar name={viewed.name} url={editAvatarPreview ?? viewed.avatar_url} size="lg"
+                onClick={isOwn && editingProfile ? () => document.getElementById("avatar-upload")?.click() : undefined} />
+              {isOwn && editingProfile && (
+                <>
+                  <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 pointer-events-none">
+                    <span className="text-white text-lg">📷</span>
+                  </div>
+                  <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const url = await uploadAvatar(file);
+                    if (url) setEditAvatarPreview(url);
+                  }} />
+                </>
+              )}
             </div>
             <div>
               {editingProfile
                 ? <input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={30} className="input text-xl font-bold py-1.5" />
                 : <h1 className="text-2xl font-bold leading-tight">{viewed.name}</h1>
               }
-              {isOwn && <p className="text-zinc-600 text-sm mt-0.5">{viewed.email}</p>}
+              {isOwn && editingProfile && <p className="text-[11px] text-zinc-600 mt-1">Tap photo to change</p>}
+              {isOwn && !editingProfile && <p className="text-zinc-600 text-sm mt-0.5">{viewed.email}</p>}
             </div>
           </div>
           {editingProfile ? (
@@ -1066,7 +1117,7 @@ export default function App() {
               {profile && (
                 <button onClick={() => { setProfilesMap((p) => ({ ...p, [session.user.id]: profile })); setViewingUserId(session.user.id); }}
                   className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-full transition-colors">
-                  <Avatar name={profile.name} size="sm" />
+                  <Avatar name={profile.name} url={profile.avatar_url} size="sm" />
                   <span className="text-zinc-300 text-xs font-medium">{profile.name.split(" ")[0]}</span>
                 </button>
               )}
@@ -1174,7 +1225,7 @@ export default function App() {
             {profile && (
               <button onClick={() => setViewingUserId(session.user.id)}
                 className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-full transition-colors">
-                <Avatar name={profile.name} size="sm" />
+                <Avatar name={profile.name} url={profile.avatar_url} size="sm" />
                 <span className="text-zinc-300 text-xs font-medium">{profile.name.split(" ")[0]}</span>
               </button>
             )}
@@ -1347,9 +1398,10 @@ export default function App() {
                       {identitiesRevealed && (
                         <button
                           onClick={() => { if (!isOwnSong) setViewingUserId(song.user_id); }}
-                          className={`text-xs ${isOwnSong ? "text-zinc-600 cursor-default" : "text-zinc-400 hover:text-white transition-colors"} ${justRevealed ? "reveal-pop" : ""}`}
+                          className={`flex items-center gap-1.5 text-xs ${isOwnSong ? "text-zinc-600 cursor-default" : "text-zinc-400 hover:text-white transition-colors"} ${justRevealed ? "reveal-pop" : ""}`}
                           style={justRevealed ? { animationDelay: `${index * 80}ms` } : {}}>
-                          by <span className="font-medium">{submitterName}</span>
+                          <Avatar name={submitterName} url={isOwnSong ? profile?.avatar_url : profilesMap[song.user_id]?.avatar_url} size="sm" />
+                          <span className="font-medium">{submitterName}</span>
                         </button>
                       )}
                     </div>
@@ -1622,7 +1674,7 @@ export default function App() {
                 <div key={p.id} className="relative">
                   <button onClick={() => setViewingUserId(p.id)}
                     className="w-full flex items-center gap-3 bg-zinc-950 border border-zinc-800/60 rounded-2xl px-4 py-3.5 hover:border-zinc-700 transition-colors text-left">
-                    <Avatar name={p.name} size="sm" />
+                    <Avatar name={p.name} url={p.avatar_url} size="sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white">{p.name}{isYou && <span className="ml-1.5 text-[10px] text-zinc-600">(you)</span>}</p>
                       {p.top_artists && <p className="text-xs text-zinc-600 truncate">{p.top_artists}</p>}
