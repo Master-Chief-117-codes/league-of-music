@@ -165,6 +165,7 @@ export default function App() {
   const [submissionsLocked, setSubmissionsLocked] = useState(false);
   const [identitiesRevealed, setIdentitiesRevealed] = useState(false);
   const [countdown, setCountdown] = useState("");
+  const [voteCountdown, setVoteCountdown] = useState("");
   const [promptInput, setPromptInput] = useState("");
 
   /* ── Submissions ── */
@@ -531,6 +532,18 @@ export default function App() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [week?.deadline, week?.prompt_deadline, week?.status]);
+
+  /* ── Vote countdown ── */
+  useEffect(() => {
+    if (!week?.vote_deadline) return;
+    const tick = () => {
+      const ms = new Date(week.vote_deadline).getTime() - Date.now();
+      setVoteCountdown(ms <= 0 ? "Time's up!" : fmtMs(ms));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [week?.vote_deadline]);
 
   /* ── History ── */
   const loadHistory = useCallback(async () => {
@@ -1343,8 +1356,8 @@ export default function App() {
                 <div className="px-4 py-4 space-y-4">
                   {[
                     { n: "1", title: "Submit a song!", sub: null },
-                    { n: "2", title: "Host reveals all songs at once", sub: "Songs stay hidden until everyone has submitted." },
-                    { n: "3", title: "Listen, comment & vote", sub: "Rank your top 3 by how well they fit the prompt. You must comment before you can vote." },
+                    { n: "2", title: "All songs revealed", sub: "Songs stay hidden until everyone has submitted." },
+                    { n: "3", title: "⚡ Listen, comment & vote", sub: "Rank your top 3 by how well they fit the prompt. You must comment before you can vote." },
                     { n: "4", title: "Guess who submitted each song", sub: "This is just for fun!" },
                     { n: "5", title: "Scores tallied!", sub: null },
                   ].map(({ n, title, sub }) => (
@@ -1386,9 +1399,16 @@ export default function App() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
-                  {submissions.length > 0 && submissions.length < Object.keys(profilesMap).length && (
-                    <span className="text-xs text-zinc-700">waiting on {Object.keys(profilesMap).length - submissions.length} more…</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {submissions.length < Object.keys(profilesMap).length && (
+                      <span className="text-xs text-zinc-700">waiting on {Object.keys(profilesMap).length - submissions.length} more…</span>
+                    )}
+                    {countdown && !submissionsLocked && (
+                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-600"}`}>
+                        <IClock /> {countdown}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {submissionsLocked && (
                   <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-zinc-800/60 bg-zinc-950">
@@ -1407,18 +1427,30 @@ export default function App() {
               {week && isPendingPrompt && (
                 <div className="py-12 text-center"><p className="text-zinc-600 text-sm">Round starts once the prompt is submitted.</p></div>
               )}
-              {identitiesRevealed && Object.keys(myRanks).length > 0 && (
-                isLockedIn ? (
-                  <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
-                    <span className="text-green-400 text-sm">✓</span>
-                    <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
-                  </div>
-                ) : (
-                  <button onClick={lockInVotes}
-                    className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
-                    Lock in votes
-                  </button>
-                )
+              {identitiesRevealed && (
+                <div className="space-y-1.5">
+                  {voteCountdown && !isLockedIn && (
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[11px] text-zinc-600">Time to vote</span>
+                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${voteCountdown === "Time's up!" ? "text-red-400" : "text-zinc-500"}`}>
+                        <IClock /> {voteCountdown}
+                      </span>
+                    </div>
+                  )}
+                  {Object.keys(myRanks).length > 0 && (
+                    isLockedIn ? (
+                      <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
+                        <span className="text-green-400 text-sm">✓</span>
+                        <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
+                      </div>
+                    ) : (
+                      <button onClick={lockInVotes}
+                        className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
+                        Lock in votes
+                      </button>
+                    )
+                  )}
+                </div>
               )}
               {identitiesRevealed && sorted.map((song, index) => {
                 const trackId = getTrackId(song.spotify_url ?? "") ?? "";

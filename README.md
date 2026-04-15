@@ -96,4 +96,4 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Informal message to send friends:
 
-> yo! making a lil music game for us — each week someone picks a prompt (like "songs that go hard at 3am"), everyone submits a song, we listen + roast each other + rank them, then guess who submitted what. winner gets bragging rights 🏆 wanna join? [link]
+> yo! making a lil music sharing game for us — each week someone picks a prompt (like "songs that go hard at 3am"), everyone submits a song, we listen + toast/roast each other + rank them, and guess who submitted what. winner gets bragging rights but it’s more about music sharing than winning. Please join! [link]
