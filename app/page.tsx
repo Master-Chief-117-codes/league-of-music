@@ -1272,11 +1272,51 @@ export default function App() {
               </div>
             )}
 
-            {/* No rounds yet */}
+            {/* No rounds yet — welcome screen */}
             {!week && (
-              <div className="py-16 text-center">
-                <p className="text-zinc-600 text-sm">No rounds yet.</p>
-                {isHost && <p className="text-zinc-700 text-xs mt-1">Start the first round below.</p>}
+              <div className="space-y-6 py-4">
+                <div className="rounded-2xl border border-zinc-800/60 bg-gradient-to-br from-zinc-950 to-black p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-lg">🎵</div>
+                    <div>
+                      <p className="font-bold text-sm">Welcome to {selectedLeague?.name ?? "League of Music"}!</p>
+                      <p className="text-xs text-zinc-500">{isHost ? "You're the host — start the first round when ready." : "Waiting for the host to kick things off."}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {[
+                      ["1", "Someone picks a prompt", 'e.g. "songs that go hard at 3am"'],
+                      ["2", "Everyone submits a song", "paste a Spotify link that fits"],
+                      ["3", "Listen, comment & rank", "leave a comment before voting"],
+                      ["4", "Guess & reveal", "who submitted what? find out at the end"],
+                    ].map(([num, title, sub]) => (
+                      <div key={num} className="flex gap-3 items-start">
+                        <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{num}</span>
+                        <div>
+                          <p className="text-xs font-semibold text-zinc-200">{title}</p>
+                          <p className="text-[11px] text-zinc-500">{sub}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Members in this league */}
+                <div className="space-y-2">
+                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Players ({Object.keys(profilesMap).length})</p>
+                  <div className="space-y-1.5">
+                    {Object.values(profilesMap).map((p: any) => (
+                      <div key={p.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-zinc-900/50 border border-zinc-800/40">
+                        <Avatar name={p.name} url={p.avatar_url} size="sm" />
+                        <span className="text-sm text-zinc-300">{p.name}</span>
+                        {p.id === selectedLeague?.created_by && <span className="ml-auto text-[10px] text-zinc-600">host</span>}
+                      </div>
+                    ))}
+                    {Object.keys(profilesMap).length === 0 && (
+                      <p className="text-xs text-zinc-600 px-1">No other players yet — share the invite link!</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1591,13 +1631,19 @@ export default function App() {
                     </div>
 
                     {/* Notify */}
-                    {week && (isPendingPrompt || week.all_submitted_at || identitiesRevealed) && (
+                    {week && (
                       <div className="space-y-2">
                         <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Notify</p>
                         {isPendingPrompt && (
-                          <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎵 Hey ${promptAuthorName}, it's your turn to pick the prompt for ${selectedLeague?.name}! You have 24 hours. ${window.location.origin}`)}`)  }
+                          <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎵 Hey ${promptAuthorName}, it's your turn to pick the prompt for ${selectedLeague?.name}! You have 24 hours. ${window.location.origin}`)}`)}
                             className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
                             📱 Text {promptAuthorName} — their turn
+                          </button>
+                        )}
+                        {!isPendingPrompt && !week.all_submitted_at && !identitiesRevealed && (
+                          <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎵 New round in ${selectedLeague?.name}! This week's prompt: "${week.prompt}" — submit your song. ${window.location.origin}`)}`)}
+                            className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
+                            📱 Text group — submit your song
                           </button>
                         )}
                         {week.all_submitted_at && !identitiesRevealed && (

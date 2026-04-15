@@ -44,41 +44,5 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // SMS + email notification #3 to all league members (fire and forget)
-  if (week.league_id) {
-    const leagueName = (week as any).leagues?.name ?? "League of Music";
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-    const { data: members } = await admin
-      .from("league_members").select("user_id").eq("league_id", week.league_id);
-    const memberIds = (members || []).map((m: any) => m.user_id);
-    const { data: profiles } = memberIds.length
-      ? await admin.from("profiles").select("email").in("id", memberIds)
-      : { data: [] };
-
-    const emailAddrs = (profiles || []).map((p: any) => p.email).filter(Boolean);
-
-    if (emailAddrs.length) {
-      fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL,
-          to: emailAddrs,
-          subject: `🎵 New round in ${leagueName}: ${prompt.trim()}`,
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#000;color:#fff;border-radius:16px">
-              <div style="width:40px;height:40px;background:#22c55e;border-radius:10px;margin-bottom:20px;font-size:20px;line-height:40px;text-align:center">🎵</div>
-              <h2 style="margin:0 0 6px;font-size:20px;font-weight:700">New Round — ${leagueName}</h2>
-              <p style="margin:0 0 20px;font-size:22px;font-weight:700;color:#22c55e">${prompt.trim()}</p>
-              <p style="margin:0 0 24px;color:#888;font-size:14px">Submit your song — 24 hours to submit.</p>
-              <a href="${appUrl}" style="display:inline-block;padding:12px 28px;background:#22c55e;color:#000;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none">Open League of Music →</a>
-            </div>
-          `,
-        }),
-      }).catch(() => {});
-    }
-  }
-
   return NextResponse.json({ ok: true });
 }

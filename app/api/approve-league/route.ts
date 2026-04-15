@@ -54,43 +54,15 @@ export async function GET(req: Request) {
     .update({ status: "approved" })
     .eq("approval_token", token);
 
-  // Email the requester
   const { data: profile } = await admin
     .from("profiles")
-    .select("email, name")
+    .select("name")
     .eq("id", request.requested_by)
     .single();
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  if (profile?.email) {
-    fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL,
-        to: profile.email,
-        subject: `🎵 Your league "${request.name}" is live!`,
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#000;color:#fff;border-radius:16px">
-            <div style="width:40px;height:40px;background:#22c55e;border-radius:10px;margin-bottom:20px;font-size:20px;line-height:40px;text-align:center">🎵</div>
-            <h2 style="margin:0 0 6px;font-size:20px;font-weight:700">Your league is live, ${profile.name}!</h2>
-            <p style="margin:0 0 20px;color:#aaa;font-size:15px">
-              <strong style="color:#fff">${request.name}</strong> has been approved. You're the host — invite your friends and start a round!
-            </p>
-            <a href="${appUrl}" style="display:inline-block;padding:12px 28px;background:#22c55e;color:#000;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none">
-              Open League of Music →
-            </a>
-          </div>
-        `,
-      }),
-    }).catch(() => {});
-  }
-
   return page(
-    `<div class="icon" style="background:#22c55e">🎵</div><h2 style="color:#22c55e">League approved!</h2><p><strong style="color:#fff">${request.name}</strong> is now live. ${profile?.name ?? "The requester"} has been notified.</p><a href="${appUrl}">Open App →</a>`
+    `<div class="icon" style="background:#22c55e">🎵</div><h2 style="color:#22c55e">League approved!</h2><p><strong style="color:#fff">${request.name}</strong> is now live.</p><a href="${appUrl}">Open App →</a>`
   );
 }
