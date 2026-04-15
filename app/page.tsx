@@ -197,7 +197,6 @@ export default function App() {
   /* ── Ranked voting ── */
   const [myRanks, setMyRanks] = useState<Record<string, number>>({});      // submissionId -> rank (1/2/3)
   const [voteScores, setVoteScores] = useState<Record<string, number>>({});  // submissionId -> weighted score
-  const [voteRawCounts, setVoteRawCounts] = useState<Record<string, number>>({}); // submissionId -> # of people who ranked it
 
   /* ── Reactions ── */
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
@@ -412,17 +411,14 @@ export default function App() {
     // Ranked votes
     const { data: allVotes } = await supabase.from("song_votes").select("submission_id, voter_id, rank").eq("week_id", weekId);
     const scores: Record<string, number> = {};
-    const rawCounts: Record<string, number> = {};
     const myRanksMap: Record<string, number> = {};
     allVotes?.forEach((v: any) => {
       if (v.rank) {
         scores[v.submission_id] = (scores[v.submission_id] || 0) + (RANK_PTS[v.rank] || 0);
-        rawCounts[v.submission_id] = (rawCounts[v.submission_id] || 0) + 1;
         if (v.voter_id === userId) myRanksMap[v.submission_id] = v.rank;
       }
     });
     setVoteScores(scores);
-    setVoteRawCounts(rawCounts);
     setMyRanks(myRanksMap);
 
     const subIds = list.map((s: any) => s.id as string);
@@ -1371,7 +1367,6 @@ export default function App() {
               {sorted.map((song, index) => {
                 const trackId = getTrackId(song.spotify_url ?? "") ?? "";
                 const score = voteScores[song.id] || 0;
-                const rawCount = voteRawCounts[song.id] || 0;
                 // Only show leader styling after reveal
                 const isWinner = identitiesRevealed && score === maxScore && maxScore > 0;
                 const isOwnSong = song.user_id === session.user.id;
@@ -1476,8 +1471,8 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Guess who — available any time before reveal */}
-                    {!identitiesRevealed && !isOwnSong && otherPlayers.length > 0 && (
+                    {/* Guess who — available after commenting, before reveal */}
+                    {!identitiesRevealed && !isOwnSong && commented && otherPlayers.length > 0 && (
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-3">
                         <p className="text-[11px] text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
