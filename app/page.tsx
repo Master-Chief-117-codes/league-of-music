@@ -207,6 +207,8 @@ export default function App() {
   const [comments, setComments] = useState<Record<string, any[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [mentionState, setMentionState] = useState<Record<string, { query: string; atIndex: number } | null>>({});
+  const [commentMedia, setCommentMedia] = useState<Record<string, { url: string; uploading: boolean } | null>>({});
 
   /* ── Comment likes ── */
   const [commentLikes, setCommentLikes] = useState<Record<string, number>>({});
@@ -361,6 +363,18 @@ export default function App() {
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     // Bust cache with timestamp
     return `${data.publicUrl}?t=${Date.now()}`;
+  };
+
+  const uploadCommentMedia = async (songId: string, file: File) => {
+    if (!session) return;
+    if (file.size > 8 * 1024 * 1024) { toast("File too large (max 8 MB)", "error"); return; }
+    setCommentMedia((p) => ({ ...p, [songId]: { url: "", uploading: true } }));
+    const ext = file.type === "image/gif" ? "gif" : file.type === "image/png" ? "png" : "jpg";
+    const path = `${session.user.id}/comment-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { contentType: file.type });
+    if (error) { setCommentMedia((p) => ({ ...p, [songId]: null })); toast("Failed to upload image", "error"); return; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    setCommentMedia((p) => ({ ...p, [songId]: { url: data.publicUrl, uploading: false } }));
   };
 
   const createProfile = async () => {
@@ -683,17 +697,41 @@ export default function App() {
 
   const submitComment = async (submissionId: string) => {
     const text = (commentInputs[submissionId] || "").trim();
-    if (!text || !session || !week) return;
+    const media = commentMedia[submissionId];
+    if (!text && !media?.url || !session || !week) return;
     setCommentInputs((p) => ({ ...p, [submissionId]: "" }));
+    setMentionState((p) => ({ ...p, [submissionId]: null }));
+    setCommentMedia((p) => ({ ...p, [submissionId]: null }));
     const { error, data } = await supabase.from("song_comments")
-      .insert({ week_id: week.id, submission_id: submissionId, user_id: session.user.id, text })
+      .insert({ week_id: week.id, submission_id: submissionId, user_id: session.user.id, text, media_url: media?.url ?? null })
       .select().single();
     if (error) {
       setCommentInputs((p) => ({ ...p, [submissionId]: text }));
+      if (media?.url) setCommentMedia((p) => ({ ...p, [submissionId]: media }));
       toast("Failed to post comment", "error");
     } else {
       setComments((p) => ({ ...p, [submissionId]: [...(p[submissionId] || []), data] }));
     }
+  };
+
+  const handleCommentChange = (songId: string, value: string) => {
+    setCommentInputs((p) => ({ ...p, [songId]: value }));
+    // Detect @mention: find last @ and check nothing but word chars follow it
+    const atIdx = value.lastIndexOf("@");
+    if (atIdx !== -1 && /^\w*$/.test(value.slice(atIdx + 1))) {
+      setMentionState((p) => ({ ...p, [songId]: { query: value.slice(atIdx + 1).toLowerCase(), atIndex: atIdx } }));
+    } else {
+      setMentionState((p) => ({ ...p, [songId]: null }));
+    }
+  };
+
+  const insertMention = (songId: string, firstName: string) => {
+    const ms = mentionState[songId];
+    if (!ms) return;
+    const current = commentInputs[songId] || "";
+    const newVal = current.slice(0, ms.atIndex + 1) + firstName + " " + current.slice(ms.atIndex + 1 + ms.query.length);
+    setCommentInputs((p) => ({ ...p, [songId]: newVal }));
+    setMentionState((p) => ({ ...p, [songId]: null }));
   };
 
   const revealIdentities = async () => {
@@ -1220,6 +1258,15 @@ export default function App() {
   const hasCommentedOn = (songId: string) =>
     comments[songId]?.some((c: any) => c.user_id === session.user.id) ?? false;
 
+  const renderMentions = (text: string) => {
+    const parts = text.split(/(@\w+)/g);
+    return parts.map((part, i) =>
+      part.startsWith("@")
+        ? <span key={i} className="font-semibold text-blue-400">{part}</span>
+        : <span key={i}>{part}</span>
+    );
+  };
+
   const hasSpotifyConnection = !!(spotifyToken || spotifyRefreshToken);
   const isLockedIn = voteLocks.has(session?.user?.id ?? "");
 
@@ -1604,7 +1651,10 @@ export default function App() {
                                 <span className="text-[11px] font-semibold text-zinc-500">
                                   {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name?.split(" ")[0] || "Player"}
                                 </span>
-                                <p className="text-sm text-zinc-300 leading-snug break-words">{c.text}</p>
+                                {c.text && <p className="text-sm text-zinc-300 leading-snug break-words">{renderMentions(c.text)}</p>}
+                                {c.media_url && (
+                                  <img src={c.media_url} alt="" className="mt-1.5 max-h-48 rounded-xl object-contain" />
+                                )}
                               </div>
                               <button onClick={() => toggleCommentLike(c.id)}
                                 className={`flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 mt-3 ${
@@ -1616,15 +1666,52 @@ export default function App() {
                             </div>
                           );
                         })}
-                        <div className="flex gap-2 pt-1">
-                          <input maxLength={150} value={commentInputs[song.id] || ""}
-                            onChange={(e) => setCommentInputs((p) => ({ ...p, [song.id]: e.target.value }))}
-                            onKeyDown={(e) => e.key === "Enter" && submitComment(song.id)}
-                            placeholder="Say something nice or funny 😂"
-                            className="input flex-1 py-2 text-xs" />
-                          <button onClick={() => submitComment(song.id)} disabled={!(commentInputs[song.id] || "").trim()}
-                            className="px-3 py-2 text-xs font-semibold rounded-xl bg-green-500 text-black disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 transition-all">Post</button>
-                        </div>
+                        {(() => {
+                          const ms = mentionState[song.id];
+                          const suggestions = ms
+                            ? Object.values(profilesMap)
+                                .filter((p: any) => p.id !== session.user.id)
+                                .filter((p: any) => p.name?.split(" ")[0]?.toLowerCase().startsWith(ms.query))
+                            : [];
+                          return (
+                            <div className="pt-1 space-y-1.5">
+                              {suggestions.length > 0 && (
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {(suggestions as any[]).map((p: any) => (
+                                    <button key={p.id} onMouseDown={(e) => { e.preventDefault(); insertMention(song.id, p.name.split(" ")[0]); }}
+                                      className="px-2.5 py-0.5 text-xs rounded-full border border-blue-500/30 text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
+                                      @{p.name.split(" ")[0]}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {commentMedia[song.id]?.url && (
+                                <div className="relative w-fit">
+                                  <img src={commentMedia[song.id]!.url} alt="" className="max-h-24 rounded-xl object-contain border border-zinc-700" />
+                                  <button onClick={() => setCommentMedia((p) => ({ ...p, [song.id]: null }))}
+                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-zinc-800 border border-zinc-600 text-zinc-400 text-xs flex items-center justify-center hover:text-white">✕</button>
+                                </div>
+                              )}
+                              {commentMedia[song.id]?.uploading && (
+                                <p className="text-xs text-zinc-500">Uploading…</p>
+                              )}
+                              <div className="flex gap-2">
+                                <input maxLength={150} value={commentInputs[song.id] || ""}
+                                  onChange={(e) => handleCommentChange(song.id, e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && submitComment(song.id)}
+                                  placeholder="Say something nice or funny 😂"
+                                  className="input flex-1 py-2 text-xs" />
+                                <label className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer flex-shrink-0">
+                                  🖼️
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCommentMedia(song.id, f); e.target.value = ""; }} />
+                                </label>
+                                <button onClick={() => submitComment(song.id)}
+                                  disabled={!(commentInputs[song.id] || "").trim() && !commentMedia[song.id]?.url}
+                                  className="px-3 py-2 text-xs font-semibold rounded-xl bg-green-500 text-black disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 transition-all">Post</button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
