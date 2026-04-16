@@ -1509,14 +1509,16 @@ export default function App() {
               )}
               {submissionsLocked && !identitiesRevealed && (
                 <div className="space-y-1.5">
-                  {voteCountdown && !isLockedIn && (
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-[11px] text-zinc-600">Time to vote</span>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] text-zinc-600">
+                      {voteLocks.size} / {Object.keys(profilesMap).length} locked in
+                    </span>
+                    {voteCountdown && !isLockedIn && (
                       <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${voteCountdown === "Time's up!" ? "text-red-400" : "text-zinc-500"}`}>
                         <IClock /> {voteCountdown}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   {Object.keys(myRanks).length > 0 && (
                     isLockedIn ? (
                       <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
