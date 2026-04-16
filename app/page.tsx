@@ -444,10 +444,15 @@ export default function App() {
     const subIds = list.map((s: any) => s.id as string);
     if (!subIds.length) return;
 
-    const [{ data: reactionData }, { data: commentData }] = await Promise.all([
+    const [{ data: reactionData }, { data: commentData }, { data: guessData }] = await Promise.all([
       supabase.from("song_reactions").select("*").in("submission_id", subIds),
       supabase.from("song_comments").select("*").in("submission_id", subIds).order("created_at", { ascending: true }),
+      supabase.from("song_guesses").select("submission_id, guessed_user_id").eq("user_id", userId).in("submission_id", subIds),
     ]);
+
+    const myGuessMap: Record<string, string> = {};
+    guessData?.forEach((g: any) => { myGuessMap[g.submission_id] = g.guessed_user_id; });
+    setGuesses(myGuessMap);
 
     const rxBySub: Record<string, Record<string, number>> = {};
     const myRx: Record<string, Set<string>> = {};
@@ -1640,7 +1645,13 @@ export default function App() {
                         <p className="text-[11px] text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
                           {otherPlayers.map((p: any) => (
-                            <button key={p.id} onClick={() => setGuesses((prev) => ({ ...prev, [song.id]: p.id }))}
+                            <button key={p.id} onClick={async () => {
+                                setGuesses((prev) => ({ ...prev, [song.id]: p.id }));
+                                await supabase.from("song_guesses").upsert(
+                                  { submission_id: song.id, user_id: session.user.id, guessed_user_id: p.id, week_id: week!.id },
+                                  { onConflict: "submission_id,user_id" }
+                                );
+                              }}
                               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                                 guesses[song.id] === p.id
                                   ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
