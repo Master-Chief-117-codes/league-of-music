@@ -1475,7 +1475,7 @@ export default function App() {
                     {/* Header row */}
                     <div className="flex items-center justify-between px-4 pt-3 pb-2">
                       <div className="flex items-center gap-2">
-                        {identitiesRevealed && <span className="text-xs font-bold tabular-nums text-zinc-600">#{index + 1}</span>}
+                        {identitiesRevealed && score > 0 && <span className="text-xs font-bold tabular-nums text-zinc-600">#{index + 1}</span>}
                         {isWinner && (
                           <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
                         )}
@@ -1501,7 +1501,7 @@ export default function App() {
 
                     {/* Score + ranking buttons */}
                     <div className="flex items-center justify-between px-4 py-3">
-                      {identitiesRevealed ? (
+                      {identitiesRevealed && score > 0 ? (
                         <span className="text-sm font-bold text-green-400 tabular-nums">{fmtScore(score)} pts</span>
                       ) : (
                         <span />
