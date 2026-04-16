@@ -297,6 +297,9 @@ export default function App() {
           if (d.access_token) {
             setSpotifyToken(d.access_token);
             localStorage.setItem("spotify_token", d.access_token);
+          } else {
+            console.error("Spotify token exchange failed:", d);
+            toast(`Spotify auth failed: ${d.error_description ?? d.error ?? "unknown"}`, "error");
           }
           if (d.refresh_token) {
             setSpotifyRefreshToken(d.refresh_token);
@@ -1421,12 +1424,12 @@ export default function App() {
               </div>
             )}
 
-            {/* Song cards — only visible after reveal */}
+            {/* Song cards — visible once submissions locked; identities hidden until reveal */}
             <div className="space-y-3">
               {week && isPendingPrompt && (
                 <div className="py-12 text-center"><p className="text-zinc-600 text-sm">Round starts once the prompt is submitted.</p></div>
               )}
-              {identitiesRevealed && (
+              {submissionsLocked && !identitiesRevealed && (
                 <div className="space-y-1.5">
                   {voteCountdown && !isLockedIn && (
                     <div className="flex items-center justify-between px-1">
@@ -1451,7 +1454,7 @@ export default function App() {
                   )}
                 </div>
               )}
-              {identitiesRevealed && sorted.map((song, index) => {
+              {submissionsLocked && sorted.map((song, index) => {
                 const trackId = getTrackId(song.spotify_url ?? "") ?? "";
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
@@ -1656,13 +1659,13 @@ export default function App() {
                       {week && !submissionsLocked && !isPendingPrompt && (
                         <button onClick={closeSubmissions}
                           className="w-full py-3 text-xs font-semibold rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition-all active:scale-95">
-                          Close Submissions
+                          Lock & Show Songs
                         </button>
                       )}
                       <div className="grid grid-cols-2 gap-2">
-                        <button onClick={revealIdentities} disabled={!week || identitiesRevealed}
+                        <button onClick={revealIdentities} disabled={!week || !submissionsLocked || identitiesRevealed}
                           className="py-3 text-xs font-semibold rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
-                          Reveal
+                          Reveal Identities & Votes
                         </button>
                         <button onClick={startNewRound} disabled={isPendingPrompt}
                           className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
@@ -1723,7 +1726,7 @@ export default function App() {
                           Invite Link
                         </button>
                         {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
-                          identitiesRevealed && submissions.length > 0 ? (
+                          submissionsLocked && submissions.length > 0 ? (
                             <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
                               className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
                               {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}

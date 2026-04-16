@@ -70,6 +70,7 @@ export async function POST(req: Request) {
 }
 
 async function fireAllSubmitted(weekId: string, leagueId: string, week: any) {
-  const now = new Date().toISOString();
-  await admin.from("weeks").update({ sms_5_sent: true, all_submitted_at: now }).eq("id", weekId);
+  const now = new Date();
+  const voteDeadline = new Date(now.getTime() + 48 * 3600000).toISOString();
+  await admin.from("weeks").update({ sms_5_sent: true, locked: true, all_submitted_at: now.toISOString(), vote_deadline: voteDeadline }).eq("id", weekId);
 }

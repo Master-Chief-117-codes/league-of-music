@@ -20,9 +20,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not the host" }, { status: 403 });
   }
 
-  const now = new Date().toISOString();
+  const now = new Date();
+  const voteDeadline = new Date(now.getTime() + 48 * 3600000).toISOString();
   const { error } = await admin.from("weeks")
-    .update({ locked: true, sms_5_sent: true, all_submitted_at: now })
+    .update({ locked: true, sms_5_sent: true, all_submitted_at: now.toISOString(), vote_deadline: voteDeadline })
     .eq("id", weekId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
