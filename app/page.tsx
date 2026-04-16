@@ -213,6 +213,8 @@ export default function App() {
   /* ── Comment likes ── */
   const [commentLikes, setCommentLikes] = useState<Record<string, number>>({});
   const [myCommentLikes, setMyCommentLikes] = useState<Set<string>>(new Set());
+  const [commentLaughs, setCommentLaughs] = useState<Record<string, number>>({});
+  const [myCommentLaughs, setMyCommentLaughs] = useState<Set<string>>(new Set());
 
   /* ── Guesses ── */
   const [guesses, setGuesses] = useState<Record<string, string>>({});
@@ -469,7 +471,10 @@ export default function App() {
 
     const commentIds = (commentData || []).map((c: any) => c.id as string);
     if (commentIds.length) {
-      const { data: clData } = await supabase.from("comment_likes").select("comment_id, user_id").in("comment_id", commentIds);
+      const [{ data: clData }, { data: laughData }] = await Promise.all([
+        supabase.from("comment_likes").select("comment_id, user_id").in("comment_id", commentIds),
+        supabase.from("comment_laughs").select("comment_id, user_id").in("comment_id", commentIds),
+      ]);
       const clCounts: Record<string, number> = {};
       const myCl = new Set<string>();
       clData?.forEach((cl: any) => {
@@ -478,6 +483,14 @@ export default function App() {
       });
       setCommentLikes(clCounts);
       setMyCommentLikes(myCl);
+      const laughCounts: Record<string, number> = {};
+      const myLaughs = new Set<string>();
+      laughData?.forEach((l: any) => {
+        laughCounts[l.comment_id] = (laughCounts[l.comment_id] || 0) + 1;
+        if (l.user_id === userId) myLaughs.add(l.comment_id);
+      });
+      setCommentLaughs(laughCounts);
+      setMyCommentLaughs(myLaughs);
     }
   }, []);
 
@@ -531,6 +544,7 @@ export default function App() {
       .on("postgres_changes", { event: "*", schema: "public", table: "song_reactions", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "song_comments", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
+      .on("postgres_changes", { event: "*", schema: "public", table: "comment_laughs", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "vote_locks", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -692,6 +706,18 @@ export default function App() {
       await supabase.from("comment_likes").delete().eq("comment_id", commentId).eq("user_id", session.user.id);
     } else {
       await supabase.from("comment_likes").insert({ comment_id: commentId, user_id: session.user.id, week_id: week.id });
+    }
+  };
+
+  const toggleCommentLaugh = async (commentId: string) => {
+    if (!session || !week) return;
+    const laughed = myCommentLaughs.has(commentId);
+    setMyCommentLaughs((p) => { const n = new Set(p); laughed ? n.delete(commentId) : n.add(commentId); return n; });
+    setCommentLaughs((p) => ({ ...p, [commentId]: Math.max(0, (p[commentId] || 0) + (laughed ? -1 : 1)) }));
+    if (laughed) {
+      await supabase.from("comment_laughs").delete().eq("comment_id", commentId).eq("user_id", session.user.id);
+    } else {
+      await supabase.from("comment_laughs").insert({ comment_id: commentId, user_id: session.user.id, week_id: week.id });
     }
   };
 
@@ -1656,13 +1682,22 @@ export default function App() {
                                   <img src={c.media_url} alt="" className="mt-1.5 max-h-48 rounded-xl object-contain" />
                                 )}
                               </div>
-                              <button onClick={() => toggleCommentLike(c.id)}
-                                className={`flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 mt-3 ${
-                                  liked ? "bg-zinc-700 border-zinc-600 text-pink-400" : "border-zinc-800 text-zinc-600 hover:border-zinc-600"
-                                }`}>
-                                <span>❤️</span>
-                                {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
-                              </button>
+                              <div className="flex gap-1 flex-shrink-0 mt-3">
+                                <button onClick={() => toggleCommentLaugh(c.id)}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 ${
+                                    myCommentLaughs.has(c.id) ? "bg-zinc-700 border-zinc-600 text-yellow-300" : "border-zinc-800 text-zinc-600 hover:border-zinc-600"
+                                  }`}>
+                                  <span>😂</span>
+                                  {(commentLaughs[c.id] || 0) > 0 && <span className="tabular-nums">{commentLaughs[c.id]}</span>}
+                                </button>
+                                <button onClick={() => toggleCommentLike(c.id)}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 ${
+                                    liked ? "bg-zinc-700 border-zinc-600 text-pink-400" : "border-zinc-800 text-zinc-600 hover:border-zinc-600"
+                                  }`}>
+                                  <span>❤️</span>
+                                  {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
