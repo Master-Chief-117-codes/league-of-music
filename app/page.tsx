@@ -561,7 +561,7 @@ export default function App() {
     if (!targetDeadline) return;
     const tick = () => {
       const ms = new Date(targetDeadline).getTime() - Date.now();
-      if (ms <= 0) { setCountdown("Time's up!"); if (week?.status !== "pending_prompt") setSubmissionsLocked(true); return; }
+      if (ms <= 0) { setCountdown("Time's up!"); if (week?.status !== "pending_prompt" && week?.locked !== false) setSubmissionsLocked(true); return; }
       setCountdown(fmtMs(ms));
     };
     tick();
