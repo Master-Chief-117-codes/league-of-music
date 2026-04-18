@@ -1511,15 +1511,21 @@ export default function App() {
               )}
               {submissionsLocked && !identitiesRevealed && (
                 <div className="space-y-1.5">
+                  {voteCountdown && (
+                    <div className={`flex items-center justify-between px-4 py-3 rounded-2xl border ${voteCountdown === "Time's up!" ? "border-red-500/30 bg-red-500/5" : "border-zinc-800/60 bg-zinc-950"}`}>
+                      <div>
+                        <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-0.5">Voting closes in</p>
+                        <span className={`text-xl font-bold tabular-nums tracking-tight ${voteCountdown === "Time's up!" ? "text-red-400" : "text-zinc-200"}`}>
+                          {voteCountdown}
+                        </span>
+                      </div>
+                      <IClock />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between px-1">
                     <span className="text-[11px] text-zinc-600">
                       {voteLocks.size} / {Object.keys(profilesMap).length} locked in
                     </span>
-                    {voteCountdown && !isLockedIn && (
-                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${voteCountdown === "Time's up!" ? "text-red-400" : "text-zinc-500"}`}>
-                        <IClock /> {voteCountdown}
-                      </span>
-                    )}
                   </div>
                   {Object.keys(myRanks).length > 0 && (
                     isLockedIn ? (
