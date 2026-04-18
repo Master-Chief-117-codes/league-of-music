@@ -249,6 +249,7 @@ export default function App() {
 
   /* ── Host controls ── */
   const [transferring, setTransferring] = useState(false);
+  const [expandedHistoryComments, setExpandedHistoryComments] = useState<Set<string>>(new Set());
   const [newRoundPick, setNewRoundPick] = useState<string | null>(null); // null = not expanded, "random" or userId
   const [renamingLeague, setRenamingLeague] = useState(false);
   const [renameInput, setRenameInput] = useState("");
@@ -591,7 +592,7 @@ export default function App() {
       supabase.from("song_submissions").select("*"),
       supabase.from("song_votes").select("submission_id, rank"),
       supabase.from("song_reactions").select("submission_id, emoji"),
-      supabase.from("song_comments").select("submission_id").order("created_at", { ascending: true }),
+      supabase.from("song_comments").select("submission_id, user_id, text, media_url").order("created_at", { ascending: true }),
     ]);
 
     // Weighted scores for history
@@ -604,13 +605,17 @@ export default function App() {
       rxBySub[r.submission_id][r.emoji] = (rxBySub[r.submission_id][r.emoji] || 0) + 1;
     });
 
-    const cmtCount: Record<string, number> = {};
-    cmtData?.forEach((c: any) => { cmtCount[c.submission_id] = (cmtCount[c.submission_id] || 0) + 1; });
+    const cmtBySub: Record<string, any[]> = {};
+    cmtData?.forEach((c: any) => {
+      if (!cmtBySub[c.submission_id]) cmtBySub[c.submission_id] = [];
+      cmtBySub[c.submission_id].push(c);
+    });
 
     const sbw: Record<string, any[]> = {};
     songs?.forEach((s: any) => {
       if (!sbw[s.week_id]) sbw[s.week_id] = [];
-      sbw[s.week_id].push({ ...s, score: vm[s.id] || 0, reactions: rxBySub[s.id] || {}, commentCount: cmtCount[s.id] || 0 });
+      const songComments = cmtBySub[s.id] || [];
+      sbw[s.week_id].push({ ...s, score: vm[s.id] || 0, reactions: rxBySub[s.id] || {}, commentCount: songComments.length, comments: songComments });
     });
 
     setHistory((weeks || []).map((w: any) => {
@@ -1996,6 +2001,7 @@ export default function App() {
                         const trackId = getTrackId(s.spotify_url ?? "") ?? "";
                         const submitter = w.revealed ? (profilesMap[s.user_id]?.name ?? "Player") : `Player ${si + 1}`;
                         const rxEntries = Object.entries(s.reactions || {}) as [string, number][];
+                        const commentsOpen = expandedHistoryComments.has(s.id);
                         return (
                           <div key={s.id} className="rounded-xl border border-zinc-800/60 overflow-hidden">
                             {trackId && (
@@ -2013,11 +2019,27 @@ export default function App() {
                                   <span key={emoji} className="text-xs text-zinc-500">{emoji}{count}</span>
                                 ))}
                                 {s.commentCount > 0 && (
-                                  <span className="text-xs text-zinc-600 flex items-center gap-0.5"><IComment />{s.commentCount}</span>
+                                  <button onClick={() => setExpandedHistoryComments((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })}
+                                    className={`text-xs flex items-center gap-0.5 transition-colors ${commentsOpen ? "text-blue-400" : "text-zinc-600 hover:text-zinc-400"}`}>
+                                    <IComment />{s.commentCount}
+                                  </button>
                                 )}
                                 <span className="text-xs font-semibold text-green-400 tabular-nums">{fmtScore(s.score)}pts</span>
                               </div>
                             </div>
+                            {commentsOpen && s.comments?.length > 0 && (
+                              <div className="border-t border-zinc-800/40 px-3 py-2.5 space-y-2">
+                                {s.comments.map((c: any) => (
+                                  <div key={c.submission_id + c.user_id + c.text} className="space-y-0.5">
+                                    <span className="text-[11px] font-semibold text-zinc-500">
+                                      {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name?.split(" ")[0] || "Player"}
+                                    </span>
+                                    {c.text && <p className="text-xs text-zinc-400 leading-snug">{renderMentions(c.text)}</p>}
+                                    {c.media_url && <img src={c.media_url} alt="" className="max-h-32 rounded-lg object-contain mt-1" />}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
