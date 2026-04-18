@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   const requesterName = profile?.name ?? "Someone";
   const requesterEmail = profile?.email ?? user.email ?? "unknown";
 
-  fetch("https://api.resend.com/emails", {
+  await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
