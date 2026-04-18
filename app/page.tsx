@@ -813,7 +813,7 @@ export default function App() {
       body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
     });
     if (!res.ok) { toast("Failed to close submissions", "error"); return; }
-    toast("Submissions closed — emails sent!", "success");
+    toast("Submissions locked — songs revealed!", "success");
   };
 
   const submitPrompt = async () => {
