@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { leagueId } = await req.json();
+  const { leagueId, overrideAuthorId } = await req.json();
   if (!leagueId) return NextResponse.json({ error: "Missing leagueId" }, { status: 400 });
 
   // Verify caller is the host of this league
@@ -35,19 +35,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No players in this league yet" }, { status: 400 });
   }
 
-  // Round-robin: pick from those with minimum prompt-author count
-  const authorCounts: Record<string, number> = {};
-  leagueMembers.forEach((m: any) => { authorCounts[m.user_id] = 0; });
-  pastWeeks?.forEach((w: any) => {
-    if (w.prompt_author_id && authorCounts[w.prompt_author_id] !== undefined) {
-      authorCounts[w.prompt_author_id]++;
-    }
-  });
-  const minCount = Math.min(...Object.values(authorCounts));
-  const eligible = Object.entries(authorCounts)
-    .filter(([, count]) => count === minCount)
-    .map(([id]) => id);
-  const authorId = eligible[Math.floor(Math.random() * eligible.length)];
+  // Use override if host manually picked someone, otherwise round-robin
+  let authorId: string;
+  if (overrideAuthorId && leagueMembers.some((m: any) => m.user_id === overrideAuthorId)) {
+    authorId = overrideAuthorId;
+  } else {
+    const authorCounts: Record<string, number> = {};
+    leagueMembers.forEach((m: any) => { authorCounts[m.user_id] = 0; });
+    pastWeeks?.forEach((w: any) => {
+      if (w.prompt_author_id && authorCounts[w.prompt_author_id] !== undefined) {
+        authorCounts[w.prompt_author_id]++;
+      }
+    });
+    const minCount = Math.min(...Object.values(authorCounts));
+    const eligible = Object.entries(authorCounts)
+      .filter(([, count]) => count === minCount)
+      .map(([id]) => id);
+    authorId = eligible[Math.floor(Math.random() * eligible.length)];
+  }
   const promptDeadline = new Date(Date.now() + 24 * 3600000).toISOString();
 
   const { error } = await admin.from("weeks").insert({

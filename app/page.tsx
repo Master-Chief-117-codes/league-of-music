@@ -249,6 +249,7 @@ export default function App() {
 
   /* ── Host controls ── */
   const [transferring, setTransferring] = useState(false);
+  const [newRoundPick, setNewRoundPick] = useState<string | null>(null); // null = not expanded, "random" or userId
   const [renamingLeague, setRenamingLeague] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -791,15 +792,16 @@ export default function App() {
     if (res.ok) setVoteLocks((prev) => new Set([...prev, session.user.id]));
   };
 
-  const startNewRound = async () => {
+  const startNewRound = async (overrideAuthorId?: string) => {
     if (!selectedLeagueId) return;
     const res = await fetch("/api/start-round", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ leagueId: selectedLeagueId }),
+      body: JSON.stringify({ leagueId: selectedLeagueId, overrideAuthorId }),
     });
     const body = await res.json();
     if (!res.ok) { toast(body.error || "Failed to start round", "error"); return; }
+    setNewRoundPick(null);
     window.location.reload();
   };
 
@@ -1802,10 +1804,38 @@ export default function App() {
                           className="py-3 text-xs font-semibold rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
                           Reveal Identities & Votes
                         </button>
-                        <button onClick={startNewRound} disabled={isPendingPrompt}
-                          className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
-                          New Round
-                        </button>
+                        {newRoundPick === null ? (
+                          <button onClick={() => setNewRoundPick("random")} disabled={isPendingPrompt}
+                            className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
+                            New Round
+                          </button>
+                        ) : (
+                          <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-3 space-y-2 col-span-2">
+                            <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Prompt chooser</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              <button onClick={() => setNewRoundPick("random")}
+                                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === "random" ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                Random
+                              </button>
+                              {Object.values(profilesMap).map((p: any) => (
+                                <button key={p.id} onClick={() => setNewRoundPick(p.id)}
+                                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === p.id ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                  {p.name.split(" ")[0]}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <button onClick={() => setNewRoundPick(null)}
+                                className="flex-1 py-2 text-xs rounded-lg border border-zinc-700 text-zinc-500 hover:border-zinc-500 transition-colors">
+                                Cancel
+                              </button>
+                              <button onClick={() => startNewRound(newRoundPick === "random" ? undefined : newRoundPick)}
+                                className="flex-1 py-2 text-xs font-semibold rounded-lg bg-green-500 text-black active:scale-95 transition-all">
+                                Start
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
