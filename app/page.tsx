@@ -13,10 +13,22 @@ const EMOJIS = ["🔥", "❤️", "😂"] as const;
 const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1 };
 
 /* ─── Helpers ─── */
-const getTrackId = (url: string) =>
+const getSpotifyTrackId = (url: string) =>
   url.match(/open\.spotify\.com(?:\/intl-[\w-]+)?\/track\/([a-zA-Z0-9]+)/)?.[1] ?? null;
 
-const isSpotifyUrl = (url: string) => getTrackId(url.trim()) !== null;
+// Keep as alias used by export logic
+const getTrackId = getSpotifyTrackId;
+
+const isAppleMusicUrl = (url: string) =>
+  /music\.apple\.com\/.+\/album\/.+/.test(url);
+
+const getAppleMusicEmbedUrl = (url: string) =>
+  url.replace("music.apple.com", "embed.music.apple.com");
+
+const isMusicUrl = (url: string) =>
+  getSpotifyTrackId(url.trim()) !== null || isAppleMusicUrl(url.trim());
+
+const isSpotifyUrl = (url: string) => getSpotifyTrackId(url.trim()) !== null;
 
 const initials = (name: string) =>
   name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -634,7 +646,7 @@ export default function App() {
 
   const submitSong = async () => {
     const trimmed = spotifyUrl.trim();
-    if (!isSpotifyUrl(trimmed)) { setUrlError("Paste a valid Spotify track link."); return; }
+    if (!isMusicUrl(trimmed)) { setUrlError("Paste a valid Spotify or Apple Music track link."); return; }
     if (submissionsLocked || !week || !session || isSubmitting) return;
     setIsSubmitting(true);
     setUrlError("");
@@ -1386,7 +1398,7 @@ export default function App() {
                   <div className="space-y-2">
                     {[
                       ["1", "Someone picks a prompt", 'e.g. "songs that go hard at 3am"'],
-                      ["2", "Everyone submits a song", "paste a Spotify link that fits"],
+                      ["2", "Everyone submits a song", "paste a Spotify or Apple Music link that fits"],
                       ["3", "Listen, comment & rank", "leave a comment before voting"],
                       ["4", "Guess & reveal", "who submitted what? find out at the end"],
                     ].map(([num, title, sub]) => (
@@ -1473,7 +1485,7 @@ export default function App() {
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex gap-2">
-                    <input value={spotifyUrl} onChange={(e) => { setSpotifyUrl(e.target.value); setUrlError(""); }} onKeyDown={(e) => e.key === "Enter" && submitSong()} placeholder="Paste a Spotify track link…" className={`input flex-1 min-w-0 ${urlError ? "border-red-500/60" : ""}`} />
+                    <input value={spotifyUrl} onChange={(e) => { setSpotifyUrl(e.target.value); setUrlError(""); }} onKeyDown={(e) => e.key === "Enter" && submitSong()} placeholder="Paste a Spotify or Apple Music link…" className={`input flex-1 min-w-0 ${urlError ? "border-red-500/60" : ""}`} />
                     <button onClick={submitSong} disabled={!spotifyUrl.trim() || isSubmitting} className="btn-primary px-5 flex-shrink-0">{isSubmitting ? "…" : "Submit"}</button>
                   </div>
                   {urlError && <p className="text-xs text-red-400 px-1">{urlError}</p>}
@@ -1584,13 +1596,19 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Spotify embed */}
-                    {trackId && (
+                    {/* Music embed */}
+                    {trackId ? (
                       <div className="px-3">
                         <iframe src={`https://open.spotify.com/embed/track/${trackId}?theme=0`} width="100%" height="80"
                           allow="autoplay; clipboard-write; encrypted-media" loading="lazy" style={{ borderRadius: "10px" }} />
                       </div>
-                    )}
+                    ) : isAppleMusicUrl(song.spotify_url ?? "") ? (
+                      <div className="px-3">
+                        <iframe src={getAppleMusicEmbedUrl(song.spotify_url ?? "")} width="100%" height="150"
+                          allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" loading="lazy"
+                          style={{ borderRadius: "10px", overflow: "hidden", background: "transparent" }} />
+                      </div>
+                    ) : null}
 
                     {/* Score + ranking buttons */}
                     <div className="flex items-center justify-between px-4 py-3">
@@ -2004,11 +2022,15 @@ export default function App() {
                         const commentsOpen = expandedHistoryComments.has(s.id);
                         return (
                           <div key={s.id} className="rounded-xl border border-zinc-800/60 overflow-hidden">
-                            {trackId && (
+                            {trackId ? (
                               <iframe src={`https://open.spotify.com/embed/track/${trackId}?theme=0`}
                                 width="100%" height="80" allow="autoplay; clipboard-write; encrypted-media"
                                 loading="lazy" style={{ borderRadius: "10px 10px 0 0", display: "block" }} />
-                            )}
+                            ) : isAppleMusicUrl(s.spotify_url ?? "") ? (
+                              <iframe src={getAppleMusicEmbedUrl(s.spotify_url ?? "")}
+                                width="100%" height="150" allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                                loading="lazy" style={{ borderRadius: "10px 10px 0 0", display: "block", overflow: "hidden", background: "transparent" }} />
+                            ) : null}
                             <div className="px-3 py-2 flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`text-xs font-bold ${si === 0 ? "text-amber-400" : "text-zinc-600"}`}>#{si + 1}</span>

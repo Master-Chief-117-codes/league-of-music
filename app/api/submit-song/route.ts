@@ -6,8 +6,14 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const getTrackId = (url: string) =>
+const getSpotifyTrackId = (url: string) =>
   url.match(/open\.spotify\.com(?:\/intl-[\w-]+)?\/track\/([a-zA-Z0-9]+)/)?.[1] ?? null;
+
+const isAppleMusicUrl = (url: string) =>
+  /music\.apple\.com\/.+\/album\/.+/.test(url);
+
+const isValidMusicUrl = (url: string) =>
+  getSpotifyTrackId(url) !== null || isAppleMusicUrl(url);
 
 export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -19,8 +25,8 @@ export async function POST(req: Request) {
   if (!weekId || !leagueId || !spotifyUrl?.trim()) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
-  if (!getTrackId(spotifyUrl.trim())) {
-    return NextResponse.json({ error: "Invalid Spotify URL" }, { status: 400 });
+  if (!isValidMusicUrl(spotifyUrl.trim())) {
+    return NextResponse.json({ error: "Invalid Spotify or Apple Music URL" }, { status: 400 });
   }
 
   // Verify week is active and accepting submissions
