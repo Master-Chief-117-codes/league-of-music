@@ -1293,7 +1293,7 @@ export default function App() {
   // Pre-reveal: keep submission order. Post-reveal: sort by score.
   const sorted = identitiesRevealed
     ? [...submissions].sort((a, b) => (voteScores[b.id] || 0) - (voteScores[a.id] || 0))
-    : [...submissions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    : [...submissions].sort((a, b) => a.id.localeCompare(b.id));
   const maxScore = submissions.length ? Math.max(0, ...submissions.map((s) => voteScores[s.id] || 0)) : 0;
   const selectedLeague = myLeagues.find((l: any) => l.id === selectedLeagueId) ?? null;
   const isHost = selectedLeague?.created_by === session?.user?.id;
@@ -1511,11 +1511,8 @@ export default function App() {
                 </div>
                 {submissionsLocked && (
                   <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-zinc-800/60 bg-zinc-950">
-                    <span className="text-lg">🔒</span>
-                    <div>
-                      <p className="text-sm font-semibold text-zinc-300">All songs are in!</p>
-                      <p className="text-xs text-zinc-600">Waiting for the host to reveal…</p>
-                    </div>
+                    <span className="text-lg">🎉</span>
+                    <p className="text-sm font-semibold text-zinc-300">All songs are in!</p>
                   </div>
                 )}
               </div>
@@ -2006,14 +2003,16 @@ export default function App() {
                     </div>
                     <p className="text-sm font-semibold text-white leading-snug">{w.prompt || "Awaiting prompt…"}</p>
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs text-zinc-600">{w.songs.length} submission{w.songs.length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs text-zinc-600">
+                        {isCurrent && !w.locked ? "In progress" : `${w.songs.length} submission${w.songs.length !== 1 ? "s" : ""}`}
+                      </span>
                       {winnerNames
                         ? <span className="text-xs font-medium text-amber-400">🏆 {winnerNames}</span>
                         : <span className="text-xs text-zinc-700">{isCurrent ? "In progress" : "No winner"}</span>
                       }
                     </div>
                   </button>
-                  {isExpanded && w.songs.length > 0 && (
+                  {isExpanded && w.songs.length > 0 && (!isCurrent || w.locked) && (
                     <div className="border-t border-zinc-800/60 px-4 py-3 space-y-3">
                       {w.songs.map((s: any, si: number) => {
                         const trackId = getTrackId(s.spotify_url ?? "") ?? "";
