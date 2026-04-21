@@ -1600,17 +1600,23 @@ export default function App() {
 
                     {/* Music embed — clicking activates this song and remounts others to stop playback */}
                     {trackId ? (
-                      <div className="px-3" onClick={() => setActiveSongId(song.id)}>
+                      <div className="px-3 relative">
                         <iframe key={activeSongId === song.id ? trackId : `${trackId}-idle`}
                           src={`https://open.spotify.com/embed/track/${trackId}?theme=0`} width="100%" height="80"
                           allow="autoplay; clipboard-write; encrypted-media" loading="lazy" style={{ borderRadius: "10px" }} />
+                        {activeSongId !== song.id && (
+                          <div className="absolute inset-0" onClick={() => setActiveSongId(song.id)} />
+                        )}
                       </div>
                     ) : isAppleMusicUrl(song.spotify_url ?? "") ? (
-                      <div className="px-3" onClick={() => setActiveSongId(song.id)}>
+                      <div className="px-3 relative">
                         <iframe key={activeSongId === song.id ? song.id : `${song.id}-idle`}
                           src={getAppleMusicEmbedUrl(song.spotify_url ?? "")} width="100%" height="150"
                           allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" loading="lazy"
                           style={{ borderRadius: "10px", overflow: "hidden", background: "transparent" }} />
+                        {activeSongId !== song.id && (
+                          <div className="absolute inset-0" onClick={() => setActiveSongId(song.id)} />
+                        )}
                       </div>
                     ) : null}
 
