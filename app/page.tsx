@@ -947,7 +947,7 @@ export default function App() {
       const plRes = await fetch(`https://api.spotify.com/v1/users/${encodeURIComponent(userId)}/playlists`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name: playlistName, description: "Round submissions", public: false }),
+        body: JSON.stringify({ name: playlistName, description: "Round submissions", public: true }),
       });
       const playlist = await plRes.json();
       if (!plRes.ok || !playlist.id) {
