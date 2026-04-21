@@ -932,10 +932,6 @@ export default function App() {
     }
 
     try {
-      const me = await meRes.json();
-      const userId = me.id;
-      if (!userId) { toast("Could not read Spotify user id", "error"); return; }
-
       const { data: freshSongs } = await supabase.from("song_submissions").select("spotify_url, resolved_spotify_id").eq("week_id", week.id);
       const uris = (freshSongs || [])
         .map((s: any) => s.resolved_spotify_id || getTrackId(s.spotify_url ?? ""))
@@ -944,7 +940,7 @@ export default function App() {
       if (!uris.length) { toast("No Spotify tracks to add", "error"); return; }
 
       const playlistName = `League of Music: ${week.prompt}`.slice(0, 100);
-      const plRes = await fetch(`https://api.spotify.com/v1/users/${encodeURIComponent(userId)}/playlists`, {
+      const plRes = await fetch(`https://api.spotify.com/v1/me/playlists`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ name: playlistName, description: "Round submissions", public: true }),
