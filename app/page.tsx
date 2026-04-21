@@ -1806,6 +1806,16 @@ export default function App() {
                   </div>
                 );
               })}
+
+              {/* Lock-in button — inline after song cards so it doesn't float over them */}
+              {submissionsLocked && !identitiesRevealed && !isLockedIn && Object.keys(myRanks).length > 0 && (
+                <div className="px-1 pt-2 pb-4">
+                  <button onClick={lockInVotes}
+                    className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
+                    Lock in votes
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Host controls */}
@@ -2086,17 +2096,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Sticky lock-in button — shown when voting is open and user has ranked songs */}
-      {submissionsLocked && !identitiesRevealed && !isLockedIn && Object.keys(myRanks).length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none">
-          <div className="max-w-lg mx-auto pointer-events-auto">
-            <button onClick={lockInVotes}
-              className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
-              Lock in votes
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Invite link modal — most reliable cross-browser way to share on mobile */}
       {inviteLink && (
