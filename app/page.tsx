@@ -1561,7 +1561,10 @@ export default function App() {
                   )}
                 </div>
               )}
-              {submissionsLocked && sorted.map((song, index) => {
+              {submissionsLocked && (() => {
+                const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
+                const allCommented = otherSongs.length > 0 && otherSongs.every((s) => hasCommentedOn(s.id));
+                return sorted.map((song, index) => {
                 const trackId = song.resolved_spotify_id || getTrackId(song.spotify_url ?? "") || "";
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
@@ -1631,7 +1634,7 @@ export default function App() {
                       {isOwnSong ? (
                         <span className="text-xs text-zinc-700 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full">Your song</span>
                       ) : !identitiesRevealed ? (
-                        commented ? (
+                        allCommented ? (
                           <div className="flex gap-1.5">
                             {([1, 2, 3] as const).map((r) => {
                               const selected = myRanks[song.id] === r;
@@ -1648,7 +1651,7 @@ export default function App() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-zinc-600 italic">💬 comment to vote</span>
+                          <span className="text-xs text-zinc-600 italic">💬 comment all songs to vote</span>
                         )
                       ) : (
                         myRanks[song.id]
@@ -1805,10 +1808,12 @@ export default function App() {
                     )}
                   </div>
                 );
-              })}
+              });
+              })()}
 
-              {/* Lock-in button — inline after song cards so it doesn't float over them */}
-              {submissionsLocked && !identitiesRevealed && !isLockedIn && Object.keys(myRanks).length > 0 && (
+              {/* Lock-in button — requires all other songs commented on */}
+              {submissionsLocked && !identitiesRevealed && !isLockedIn && Object.keys(myRanks).length > 0 &&
+               sorted.filter((s) => s.user_id !== session.user.id).every((s) => hasCommentedOn(s.id)) && (
                 <div className="px-1 pt-2 pb-4">
                   <button onClick={lockInVotes}
                     className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
