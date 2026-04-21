@@ -1557,7 +1557,7 @@ export default function App() {
                 </div>
               )}
               {submissionsLocked && sorted.map((song, index) => {
-                const trackId = getTrackId(song.spotify_url ?? "") ?? "";
+                const trackId = song.resolved_spotify_id || getTrackId(song.spotify_url ?? "") || "";
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
                 const isWinner = identitiesRevealed && score === maxScore && maxScore > 0;
@@ -2015,7 +2015,7 @@ export default function App() {
                   {isExpanded && w.songs.length > 0 && (!isCurrent || w.locked) && (
                     <div className="border-t border-zinc-800/60 px-4 py-3 space-y-3">
                       {w.songs.map((s: any, si: number) => {
-                        const trackId = getTrackId(s.spotify_url ?? "") ?? "";
+                        const trackId = s.resolved_spotify_id || getTrackId(s.spotify_url ?? "") || "";
                         const submitter = w.revealed ? (profilesMap[s.user_id]?.name ?? "Player") : `Player ${si + 1}`;
                         const rxEntries = Object.entries(s.reactions || {}) as [string, number][];
                         const commentsOpen = expandedHistoryComments.has(s.id);

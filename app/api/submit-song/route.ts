@@ -15,6 +15,63 @@ const isAppleMusicUrl = (url: string) =>
 const isValidMusicUrl = (url: string) =>
   getSpotifyTrackId(url) !== null || isAppleMusicUrl(url);
 
+async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string | null> {
+  const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+
+  // Fetch Apple Music page to extract title/artist from JSON-LD or og tags
+  const pageRes = await fetch(appleMusicUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; bot)" },
+  }).catch(() => null);
+  if (!pageRes?.ok) return null;
+  const html = await pageRes.text();
+
+  // Try JSON-LD first (most reliable)
+  let title = "";
+  let artist = "";
+  const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  if (jsonLdMatch) {
+    try {
+      const ld = JSON.parse(jsonLdMatch[1]);
+      const record = Array.isArray(ld) ? ld.find((x: any) => x["@type"] === "MusicRecording") : ld;
+      title = record?.name ?? "";
+      artist = record?.byArtist?.name ?? record?.byArtist?.[0]?.name ?? "";
+    } catch {}
+  }
+
+  // Fall back to og tags
+  if (!title) {
+    title = html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] ?? "";
+  }
+  if (!artist) {
+    // Page <title> is often "Song · Artist · Album · Year · Genre"
+    const pageTitle = html.match(/<title>([^<]+)<\/title>/)?.[1] ?? "";
+    const parts = pageTitle.split("·").map((s) => s.trim());
+    if (parts.length >= 2) { title = title || parts[0]; artist = parts[1]; }
+  }
+
+  if (!title) return null;
+
+  // Get Spotify app token (client credentials)
+  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+  }).catch(() => null);
+  if (!tokenRes?.ok) return null;
+  const { access_token } = await tokenRes.json();
+
+  const q = artist ? `track:${title} artist:${artist}` : title;
+  const searchRes = await fetch(
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`,
+    { headers: { Authorization: `Bearer ${access_token}` } }
+  ).catch(() => null);
+  if (!searchRes?.ok) return null;
+  const { tracks } = await searchRes.json();
+  return tracks?.items?.[0]?.id ?? null;
+}
+
 export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -50,10 +107,15 @@ export async function POST(req: Request) {
 
   if (existing) return NextResponse.json({ error: "Already submitted" }, { status: 400 });
 
+  const resolvedSpotifyId = isAppleMusicUrl(spotifyUrl.trim())
+    ? await resolveAppleMusicToSpotify(spotifyUrl.trim()).catch(() => null)
+    : null;
+
   const { error } = await admin.from("song_submissions").insert({
     week_id: weekId,
     user_id: user.id,
     spotify_url: spotifyUrl.trim(),
+    ...(resolvedSpotifyId ? { resolved_spotify_id: resolvedSpotifyId } : {}),
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
