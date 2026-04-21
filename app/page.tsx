@@ -314,6 +314,7 @@ export default function App() {
         .then((r) => r.json())
         .then((d) => {
           if (d.access_token) {
+            console.log("Spotify token granted scopes:", d.scope);
             setSpotifyToken(d.access_token);
             localStorage.setItem("spotify_token", d.access_token);
           } else {
