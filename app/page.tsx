@@ -856,6 +856,8 @@ export default function App() {
   };
 
   const startSpotifyAuth = async () => {
+    localStorage.removeItem("spotify_token");
+    localStorage.removeItem("spotify_refresh_token");
     const verifier = generateCodeVerifier();
     const challenge = await generateCodeChallenge(verifier);
     const state = "league_spotify_" + Math.random().toString(36).slice(2);
