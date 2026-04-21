@@ -263,6 +263,7 @@ export default function App() {
   const [transferring, setTransferring] = useState(false);
   const [expandedHistoryComments, setExpandedHistoryComments] = useState<Set<string>>(new Set());
   const [newRoundPick, setNewRoundPick] = useState<string | null>(null); // null = not expanded, "random" or userId
+  const [activeSongId, setActiveSongId] = useState<string | null>(null);
   const [renamingLeague, setRenamingLeague] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -1541,18 +1542,11 @@ export default function App() {
                       {voteLocks.size} / {Object.keys(profilesMap).length} locked in
                     </span>
                   </div>
-                  {Object.keys(myRanks).length > 0 && (
-                    isLockedIn ? (
-                      <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
-                        <span className="text-green-400 text-sm">✓</span>
-                        <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
-                      </div>
-                    ) : (
-                      <button onClick={lockInVotes}
-                        className="w-full py-3.5 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
-                        Lock in votes
-                      </button>
-                    )
+                  {isLockedIn && (
+                    <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
+                      <span className="text-green-400 text-sm">✓</span>
+                      <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
+                    </div>
                   )}
                 </div>
               )}
@@ -1593,15 +1587,17 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Music embed */}
+                    {/* Music embed — clicking activates this song and remounts others to stop playback */}
                     {trackId ? (
-                      <div className="px-3">
-                        <iframe src={`https://open.spotify.com/embed/track/${trackId}?theme=0`} width="100%" height="80"
+                      <div className="px-3" onClick={() => setActiveSongId(song.id)}>
+                        <iframe key={activeSongId === song.id ? trackId : `${trackId}-idle`}
+                          src={`https://open.spotify.com/embed/track/${trackId}?theme=0`} width="100%" height="80"
                           allow="autoplay; clipboard-write; encrypted-media" loading="lazy" style={{ borderRadius: "10px" }} />
                       </div>
                     ) : isAppleMusicUrl(song.spotify_url ?? "") ? (
-                      <div className="px-3">
-                        <iframe src={getAppleMusicEmbedUrl(song.spotify_url ?? "")} width="100%" height="150"
+                      <div className="px-3" onClick={() => setActiveSongId(song.id)}>
+                        <iframe key={activeSongId === song.id ? song.id : `${song.id}-idle`}
+                          src={getAppleMusicEmbedUrl(song.spotify_url ?? "")} width="100%" height="150"
                           allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" loading="lazy"
                           style={{ borderRadius: "10px", overflow: "hidden", background: "transparent" }} />
                       </div>
@@ -2072,6 +2068,18 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Sticky lock-in button — shown when voting is open and user has ranked songs */}
+      {submissionsLocked && !identitiesRevealed && !isLockedIn && Object.keys(myRanks).length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none">
+          <div className="max-w-lg mx-auto pointer-events-auto">
+            <button onClick={lockInVotes}
+              className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
+              Lock in votes
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Invite link modal — most reliable cross-browser way to share on mobile */}
       {inviteLink && (
