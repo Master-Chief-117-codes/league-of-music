@@ -929,20 +929,31 @@ export default function App() {
     }
 
     try {
-      const plRes = await fetch("https://api.spotify.com/v1/me/playlists", {
+      const me = await meRes.json();
+      const userId = me.id;
+      if (!userId) { toast("Could not read Spotify user id", "error"); return; }
+
+      const { data: freshSongs } = await supabase.from("song_submissions").select("spotify_url, resolved_spotify_id").eq("week_id", week.id);
+      const uris = (freshSongs || [])
+        .map((s: any) => s.resolved_spotify_id || getTrackId(s.spotify_url ?? ""))
+        .filter(Boolean)
+        .map((id: string) => `spotify:track:${id}`);
+      if (!uris.length) { toast("No Spotify tracks to add", "error"); return; }
+
+      const playlistName = `League of Music: ${week.prompt}`.slice(0, 100);
+      const plRes = await fetch(`https://api.spotify.com/v1/users/${encodeURIComponent(userId)}/playlists`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `League of Music: ${week.prompt}`, description: "Round submissions", public: false }),
+        body: JSON.stringify({ name: playlistName, description: "Round submissions", public: false }),
       });
       const playlist = await plRes.json();
-      if (!playlist.id) {
-        if (plRes.status === 401 || plRes.status === 403) { clearSpotifyToken(); toast("Spotify reconnect required — tap Reconnect", "error"); }
-        else { toast(`Playlist creation failed: ${playlist.error?.message ?? "unknown"}`, "error"); }
+      if (!plRes.ok || !playlist.id) {
+        console.error("Spotify playlist creation failed:", plRes.status, playlist);
+        if (plRes.status === 401) { clearSpotifyToken(); toast("Spotify session expired — tap Connect Spotify", "error"); }
+        else { toast(`Playlist creation failed: ${playlist.error?.message ?? plRes.status}`, "error"); }
         return;
       }
-      const { data: freshSongs } = await supabase.from("song_submissions").select("spotify_url").eq("week_id", week.id);
-      const uris = (freshSongs || []).map((s: any) => getTrackId(s.spotify_url ?? "")).filter(Boolean).map((id) => `spotify:track:${id}`);
-      if (!uris.length) { toast("No tracks found to add", "error"); return; }
+
       const addRes = await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -950,13 +961,14 @@ export default function App() {
       });
       const addData = await addRes.json();
       if (!addRes.ok) {
-        if (addRes.status === 401 || addRes.status === 403) { clearSpotifyToken(); toast("Spotify reconnect required — tap Reconnect", "error"); }
-        else { toast(`Add tracks failed: ${addData.error?.message ?? JSON.stringify(addData)}`, "error"); }
+        console.error("Spotify add tracks failed:", addRes.status, addData);
+        toast(`Add tracks failed: ${addData.error?.message ?? addRes.status}`, "error");
         return;
       }
       toast("Playlist created! Opening…", "success");
       window.open(`https://open.spotify.com/playlist/${playlist.id}`, "_blank");
     } catch (e: any) {
+      console.error("Spotify export error:", e);
       toast("Spotify export failed: " + (e?.message ?? "unknown"), "error");
     } finally {
       setExportingPlaylist(false);
