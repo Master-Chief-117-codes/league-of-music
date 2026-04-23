@@ -10,7 +10,7 @@ const supabase = createClient(
 
 
 const EMOJIS = ["🔥", "❤️", "😂"] as const;
-const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1 };
+const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1, 4: 0.5 };
 
 /* ─── Helpers ─── */
 const getSpotifyTrackId = (url: string) =>
@@ -669,11 +669,11 @@ export default function App() {
     setIsSubmitting(false);
   };
 
-  // Assigns a rank (1/2/3) to a submission, handling conflicts
-  const setVoteRank = async (submissionId: string, newRank: 1 | 2 | 3) => {
+  // Assigns a rank (1/2/3/4) to a submission, handling conflicts
+  const setVoteRank = async (submissionId: string, newRank: 1 | 2 | 3 | 4) => {
     if (!week || !session || identitiesRevealed) return;
 
-    const prevRankOfSong = myRanks[submissionId] as 1 | 2 | 3 | undefined;
+    const prevRankOfSong = myRanks[submissionId] as 1 | 2 | 3 | 4 | undefined;
     const prevSongAtRank = Object.entries(myRanks).find(([id, r]) => r === newRank && id !== submissionId)?.[0];
     const isToggling = prevRankOfSong === newRank;
 
@@ -1307,6 +1307,10 @@ export default function App() {
     ? [...submissions].sort((a, b) => (voteScores[b.id] || 0) - (voteScores[a.id] || 0))
     : [...submissions].sort((a, b) => a.id.localeCompare(b.id));
   const maxScore = submissions.length ? Math.max(0, ...submissions.map((s) => voteScores[s.id] || 0)) : 0;
+  const showFourRanks = submissions.length >= 6;
+  // Dense-rank: songs with the same score share the same place (no gaps)
+  const uniqueScoresDesc = [...new Set(sorted.map((s) => voteScores[s.id] || 0))].sort((a, b) => b - a);
+  const densePlace = (songId: string) => uniqueScoresDesc.indexOf(voteScores[songId] || 0) + 1;
   const selectedLeague = myLeagues.find((l: any) => l.id === selectedLeagueId) ?? null;
   const isHost = selectedLeague?.created_by === session?.user?.id;
   const leaderboard = Object.values(profilesMap).sort((a: any, b: any) => (b.wins || 0) - (a.wins || 0));
@@ -1585,7 +1589,7 @@ export default function App() {
                     {/* Header row */}
                     <div className="flex items-center justify-between px-4 pt-3 pb-2">
                       <div className="flex items-center gap-2">
-                        {identitiesRevealed && score > 0 && <span className="text-xs font-bold tabular-nums text-zinc-600">#{index + 1}</span>}
+                        {identitiesRevealed && score > 0 && <span className="text-xs font-bold tabular-nums text-zinc-600">#{densePlace(song.id)}</span>}
                         {isWinner && (
                           <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
                         )}
@@ -1636,7 +1640,7 @@ export default function App() {
                       ) : !identitiesRevealed ? (
                         allCommented ? (
                           <div className="flex gap-1.5">
-                            {([1, 2, 3] as const).map((r) => {
+                            {(showFourRanks ? [1, 2, 3, 4] as const : [1, 2, 3] as const).map((r) => {
                               const selected = myRanks[song.id] === r;
                               return (
                                 <button key={r} onClick={() => !isLockedIn && setVoteRank(song.id, r)}
