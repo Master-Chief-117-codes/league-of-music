@@ -1557,11 +1557,18 @@ export default function App() {
                       {voteLocks.size} / {Object.keys(profilesMap).length} locked in
                     </span>
                   </div>
-                  {isLockedIn && (
+                  {isLockedIn ? (
                     <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
                       <span className="text-green-400 text-sm">✓</span>
                       <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
                     </div>
+                  ) : (
+                    Object.keys(myRanks).length > 0 && sorted.filter((s) => s.user_id !== session.user.id).every((s) => hasCommentedOn(s.id)) && (
+                      <button onClick={lockInVotes}
+                        className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
+                        Lock in votes
+                      </button>
+                    )
                   )}
                 </div>
               )}
@@ -1815,16 +1822,7 @@ export default function App() {
               });
               })()}
 
-              {/* Lock-in button — requires all other songs commented on */}
-              {submissionsLocked && !identitiesRevealed && !isLockedIn && Object.keys(myRanks).length > 0 &&
-               sorted.filter((s) => s.user_id !== session.user.id).every((s) => hasCommentedOn(s.id)) && (
-                <div className="px-1 pt-2 pb-4">
-                  <button onClick={lockInVotes}
-                    className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
-                    Lock in votes
-                  </button>
-                </div>
-              )}
+
             </div>
 
             {/* Host controls */}
@@ -2020,31 +2018,30 @@ export default function App() {
               </div>
             ) : history.length === 0 ? (
               <p className="text-zinc-600 text-sm py-10 text-center">No rounds yet.</p>
-            ) : history.map((w: any, i: number) => {
-              const isCurrent = w.id === week?.id;
+            ) : history.filter((w: any) => w.id !== week?.id).map((w: any, i: number) => {
               const winnerNames = w.winners.map((s: any) => profilesMap[s.user_id]?.name ?? "Player").join(" & ");
               const isExpanded = expandedHistoryId === w.id;
               return (
-                <div key={w.id} className={`rounded-2xl border overflow-hidden ${isCurrent ? "border-green-500/30 bg-green-500/5" : "border-zinc-800 bg-zinc-950"}`}>
+                <div key={w.id} className="rounded-2xl border overflow-hidden border-zinc-800 bg-zinc-950">
                   <button className="w-full px-4 py-4 text-left space-y-2" onClick={() => setExpandedHistoryId(isExpanded ? null : w.id)}>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
-                        {isCurrent ? "Current Round" : `Round ${history.length - i}`}
+                        {`Round ${history.filter((x: any) => x.id !== week?.id).length - i}`}
                       </span>
                       <span className="text-[11px] text-zinc-600">{fmtDate(w.created_at)}</span>
                     </div>
                     <p className="text-sm font-semibold text-white leading-snug">{w.prompt || "Awaiting prompt…"}</p>
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-xs text-zinc-600">
-                        {isCurrent && !w.locked ? "In progress" : `${w.songs.length} submission${w.songs.length !== 1 ? "s" : ""}`}
+                        {`${w.songs.length} submission${w.songs.length !== 1 ? "s" : ""}`}
                       </span>
                       {winnerNames
                         ? <span className="text-xs font-medium text-amber-400">🏆 {winnerNames}</span>
-                        : <span className="text-xs text-zinc-700">{isCurrent ? "In progress" : "No winner"}</span>
+                        : <span className="text-xs text-zinc-700">No winner</span>
                       }
                     </div>
                   </button>
-                  {isExpanded && w.songs.length > 0 && (!isCurrent || w.locked) && (
+                  {isExpanded && w.songs.length > 0 && (
                     <div className="border-t border-zinc-800/60 px-4 py-3 space-y-3">
                       {w.songs.map((s: any, si: number) => {
                         const trackId = s.resolved_spotify_id || getTrackId(s.spotify_url ?? "") || "";
