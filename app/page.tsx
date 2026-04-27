@@ -1436,8 +1436,9 @@ export default function App() {
                     {[
                       ["1", "Someone picks a prompt", 'e.g. "songs that go hard at 3am"'],
                       ["2", "Everyone submits a song", "paste a Spotify or Apple Music link that fits"],
-                      ["3", "Listen, comment & rank", "leave a comment before voting"],
-                      ["4", "Guess & reveal", "who submitted what? find out at the end"],
+                      ["3", "Listen, react & comment", "react to every song and leave at least one comment to unlock voting"],
+                      ["4", "Vote for your favorites", "rank your top 3 (or 4!) — pick what fits the prompt best, or just your favorite"],
+                      ["5", "Guess & reveal", "who submitted what? find out at the end"],
                     ].map(([num, title, sub]) => (
                       <div key={num} className="flex gap-3 items-start">
                         <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{num}</span>
@@ -1493,9 +1494,10 @@ export default function App() {
                   {[
                     { n: "1", title: "Submit a song!", sub: null },
                     { n: "2", title: "All songs revealed", sub: "Songs stay hidden until everyone has submitted." },
-                    { n: "3", title: "⚡ Listen, comment & vote", sub: "Rank your top 3 by how well they fit the prompt. You must comment before you can vote." },
-                    { n: "4", title: "Guess who submitted each song", sub: "This is just for fun!" },
-                    { n: "5", title: "Scores tallied!", sub: null },
+                    { n: "3", title: "⚡ Listen, react & comment", sub: "React to every song and leave at least one comment to unlock voting." },
+                    { n: "4", title: "Vote for your favorites", sub: "Rank your top 3 (or 4 in bigger groups) — vote for what fits the prompt best, or just your favorite." },
+                    { n: "5", title: "Guess who submitted each song", sub: "This is just for fun!" },
+                    { n: "6", title: "Scores tallied!", sub: null },
                   ].map(({ n, title, sub }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
