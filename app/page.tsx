@@ -1212,6 +1212,12 @@ export default function App() {
                 <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Rounds Won</p>
                 <p className="text-2xl font-bold text-green-400">{viewed.wins || 0}</p>
               </div>
+              {isOwn && (
+                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Total Points</p>
+                  <p className="text-2xl font-bold text-green-400">{fmtScore(viewed.points || 0)}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
