@@ -7,7 +7,7 @@ const admin = createClient(
 );
 
 const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1, 4: 0.5 };
-const NON_VOTER_PENALTY = -2;
+const NON_VOTER_PENALTY = 1; // subtracted from round vote score, floored at 0
 
 export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -44,6 +44,14 @@ export async function POST(req: Request) {
     if (v.rank) scores[v.submission_id] = (scores[v.submission_id] || 0) + (RANK_PTS[v.rank] || 0);
   });
 
+  // Apply -1 penalty to non-voters' song scores (floored at 0)
+  const lockedIds = new Set((lockedVoters || []).map((v: any) => v.user_id));
+  (submissions || []).forEach((s: any) => {
+    if (!lockedIds.has(s.user_id)) {
+      scores[s.id] = Math.max(0, (scores[s.id] || 0) - NON_VOTER_PENALTY);
+    }
+  });
+
   const ranked = (submissions || [])
     .map((s: any) => ({ ...s, score: scores[s.id] || 0 }))
     .filter((s: any) => s.score > 0)
@@ -69,17 +77,6 @@ export async function POST(req: Request) {
     for (const s of ranked.filter((s: any) => s.score === topScore)) {
       await admin.rpc("increment_league_wins", { league_id_input: leagueId, user_id_input: s.user_id });
     }
-  }
-
-  // Penalise members who didn't lock in votes
-  const lockedIds = new Set((lockedVoters || []).map((v: any) => v.user_id));
-  const nonVoters = (members || []).filter((m: any) => !lockedIds.has(m.user_id));
-  for (const m of nonVoters) {
-    await admin.rpc("add_league_points", {
-      league_id_input: leagueId,
-      user_id_input: m.user_id,
-      points_to_add: NON_VOTER_PENALTY,
-    });
   }
 
   return NextResponse.json({ ok: true });

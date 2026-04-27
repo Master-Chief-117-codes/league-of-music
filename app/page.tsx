@@ -461,6 +461,13 @@ export default function App() {
         if (v.voter_id === userId) myRanksMap[v.submission_id] = v.rank;
       }
     });
+    // Apply -1 penalty to non-voters' song scores (floored at 0), matching reveal logic
+    const lockedSet = new Set((vl || []).map((l: any) => l.user_id));
+    list.forEach((s: any) => {
+      if (!lockedSet.has(s.user_id)) {
+        scores[s.id] = Math.max(0, (scores[s.id] || 0) - 1);
+      }
+    });
     setVoteScores(scores);
     setMyRanks(myRanksMap);
 
@@ -1645,7 +1652,7 @@ export default function App() {
                       <div className="px-4 py-3 rounded-2xl border border-red-500/25 bg-red-500/5 space-y-1">
                         <div className="flex items-center justify-between">
                           <p className="text-[10px] font-semibold text-red-400/80 uppercase tracking-widest">Didn't vote</p>
-                          <span className="text-lg font-bold text-red-500">-2 pts</span>
+                          <span className="text-lg font-bold text-red-500">-1 pt</span>
                         </div>
                         <p className="text-sm text-red-200/80">{nonVoters.map(firstName).join(", ")}</p>
                       </div>
@@ -1704,7 +1711,7 @@ export default function App() {
                           style={justRevealed ? { animationDelay: `${index * 80}ms` } : {}}>
                           <Avatar name={submitterName} url={isOwnSong ? profile?.avatar_url : profilesMap[song.user_id]?.avatar_url} size="sm" />
                           <span className="font-medium">{submitterName}</span>
-                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400 leading-none">-2</span>}
+                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400 leading-none">-1</span>}
                         </button>
                       )}
                     </div>
@@ -1736,7 +1743,7 @@ export default function App() {
                       {identitiesRevealed && score > 0 ? (
                         <span className="flex items-baseline gap-1.5">
                           <span className="text-sm font-bold text-green-400 tabular-nums">{fmtScore(score)} pts</span>
-                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400">-2</span>}
+                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400">-1</span>}
                         </span>
                       ) : (
                         <span />
