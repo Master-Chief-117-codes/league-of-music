@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 
-const EMOJIS = ["🔥", "❤️", "😂"] as const;
+const EMOJIS = ["🔥", "❤️", "😂", "💯", "🤯", "🥹", "🎯", "👀"] as const;
 const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1, 4: 0.5 };
 
 /* ─── Helpers ─── */
@@ -230,6 +230,8 @@ export default function App() {
 
   /* ── Guesses ── */
   const [guesses, setGuesses] = useState<Record<string, string>>({});
+  // submissionId -> array of { userId, guessedUserId } across all voters
+  const [allGuesses, setAllGuesses] = useState<Record<string, { userId: string; guessedUserId: string }[]>>({});
 
   /* ── Navigation ── */
   const [activeTab, setActiveTab] = useState("current");
@@ -463,12 +465,18 @@ export default function App() {
     const [{ data: reactionData }, { data: commentData }, { data: guessData }] = await Promise.all([
       supabase.from("song_reactions").select("*").in("submission_id", subIds),
       supabase.from("song_comments").select("*").in("submission_id", subIds).order("created_at", { ascending: true }),
-      supabase.from("song_guesses").select("submission_id, guessed_user_id").eq("user_id", userId).in("submission_id", subIds),
+      supabase.from("song_guesses").select("submission_id, user_id, guessed_user_id").in("submission_id", subIds),
     ]);
 
     const myGuessMap: Record<string, string> = {};
-    guessData?.forEach((g: any) => { myGuessMap[g.submission_id] = g.guessed_user_id; });
+    const allGuessesMap: Record<string, { userId: string; guessedUserId: string }[]> = {};
+    guessData?.forEach((g: any) => {
+      if (g.user_id === userId) myGuessMap[g.submission_id] = g.guessed_user_id;
+      if (!allGuessesMap[g.submission_id]) allGuessesMap[g.submission_id] = [];
+      allGuessesMap[g.submission_id].push({ userId: g.user_id, guessedUserId: g.guessed_user_id });
+    });
     setGuesses(myGuessMap);
+    setAllGuesses(allGuessesMap);
 
     const rxBySub: Record<string, Record<string, number>> = {};
     const myRx: Record<string, Set<string>> = {};
@@ -1329,6 +1337,13 @@ export default function App() {
   // Has the current user commented on a given song?
   const hasCommentedOn = (songId: string) =>
     comments[songId]?.some((c: any) => c.user_id === session.user.id) ?? false;
+  // Has the current user reacted to a given song with any emoji?
+  const hasReactedTo = (songId: string) => (myReactions[songId]?.size ?? 0) > 0;
+  // Total comments the current user has made across all songs this round
+  const myTotalComments = Object.values(comments).reduce(
+    (sum, list) => sum + (list?.filter((c: any) => c.user_id === session.user.id).length ?? 0),
+    0,
+  );
 
   const renderMentions = (text: string) => {
     const parts = text.split(/(@\w+)/g);
@@ -1516,29 +1531,36 @@ export default function App() {
             )}
 
             {/* Submission count + waiting state */}
-            {week && !isPendingPrompt && !identitiesRevealed && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
-                  <div className="flex items-center gap-2">
-                    {submissions.length < Object.keys(profilesMap).length && (
-                      <span className="text-xs text-zinc-700">waiting on {Object.keys(profilesMap).length - submissions.length} more…</span>
-                    )}
+            {week && !isPendingPrompt && !identitiesRevealed && (() => {
+              const submittedIds = new Set(submissions.map((s: any) => s.user_id));
+              const notSubmitted = Object.values(profilesMap).filter((p: any) => !submittedIds.has(p.id));
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-500">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
                     {countdown && !submissionsLocked && (
                       <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-600"}`}>
                         <IClock /> {countdown}
                       </span>
                     )}
                   </div>
+                  {!submissionsLocked && notSubmitted.length > 0 && (
+                    <div className="px-3 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                      <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on</p>
+                      <p className="text-xs text-amber-200/90 leading-snug">
+                        {notSubmitted.map((p: any) => p.name?.split(" ")[0] ?? "Player").join(", ")}
+                      </p>
+                    </div>
+                  )}
+                  {submissionsLocked && (
+                    <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-zinc-800/60 bg-zinc-950">
+                      <span className="text-lg">🎉</span>
+                      <p className="text-sm font-semibold text-zinc-300">All songs are in!</p>
+                    </div>
+                  )}
                 </div>
-                {submissionsLocked && (
-                  <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-zinc-800/60 bg-zinc-950">
-                    <span className="text-lg">🎉</span>
-                    <p className="text-sm font-semibold text-zinc-300">All songs are in!</p>
-                  </div>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {/* Song cards — visible once submissions locked; identities hidden until reveal */}
             <div className="space-y-3">
@@ -1563,13 +1585,26 @@ export default function App() {
                       {voteLocks.size} / {Object.keys(profilesMap).length} locked in
                     </span>
                   </div>
+                  {(() => {
+                    const notLocked = Object.values(profilesMap).filter((p: any) => !voteLocks.has(p.id));
+                    return notLocked.length > 0 && (
+                      <div className="px-3 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                        <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on votes from</p>
+                        <p className="text-xs text-amber-200/90 leading-snug">
+                          {notLocked.map((p: any) => p.name?.split(" ")[0] ?? "Player").join(", ")}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   {isLockedIn ? (
                     <div className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
                       <span className="text-green-400 text-sm">✓</span>
                       <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
                     </div>
                   ) : (
-                    Object.keys(myRanks).length > 0 && sorted.filter((s) => s.user_id !== session.user.id).every((s) => hasCommentedOn(s.id)) && (
+                    Object.keys(myRanks).length > 0 &&
+                    sorted.filter((s) => s.user_id !== session.user.id).every((s) => hasReactedTo(s.id)) &&
+                    myTotalComments >= 1 && (
                       <button onClick={lockInVotes}
                         className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
                         Lock in votes
@@ -1580,7 +1615,8 @@ export default function App() {
               )}
               {submissionsLocked && (() => {
                 const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
-                const allCommented = otherSongs.length > 0 && otherSongs.every((s) => hasCommentedOn(s.id));
+                const allReacted = otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id));
+                const canVote = allReacted && myTotalComments >= 1;
                 return sorted.map((song, index) => {
                 const trackId = song.resolved_spotify_id || getTrackId(song.spotify_url ?? "") || "";
                 const score = voteScores[song.id] || 0;
@@ -1651,7 +1687,7 @@ export default function App() {
                       {isOwnSong ? (
                         <span className="text-xs text-zinc-700 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full">Your song</span>
                       ) : !identitiesRevealed ? (
-                        allCommented ? (
+                        canVote ? (
                           <div className="flex gap-1.5">
                             {(showFourRanks ? [1, 2, 3, 4] as const : [1, 2, 3] as const).map((r) => {
                               const selected = myRanks[song.id] === r;
@@ -1668,7 +1704,7 @@ export default function App() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-zinc-600 italic">💬 comment all songs to vote</span>
+                          <span className="text-xs text-zinc-600 italic">{!allReacted ? "react to all songs to vote" : "leave at least 1 comment to vote"}</span>
                         )
                       ) : (
                         myRanks[song.id]
@@ -1677,8 +1713,8 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Reactions + comment toggle */}
-                    <div className="flex items-center gap-1.5 px-4 pb-3">
+                    {/* Reactions */}
+                    <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
                       {EMOJIS.map((emoji) => {
                         const count = songRx[emoji] || 0;
                         const reacted = myReactions[song.id]?.has(emoji);
@@ -1692,15 +1728,25 @@ export default function App() {
                           </button>
                         );
                       })}
-                      <button
-                        onClick={() => setExpandedComments((p) => { const n = new Set(p); n.has(song.id) ? n.delete(song.id) : n.add(song.id); return n; })}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all ml-auto ${
-                          isExpanded ? "border-blue-500/40 text-blue-300 bg-blue-500/10" : "border-blue-500/20 text-blue-400 hover:border-blue-500/40"
-                        }`}>
-                        <IComment />
-                        {songComments.length > 0 && <span>{songComments.length}</span>}
-                      </button>
                     </div>
+
+                    {/* Comment toggle — full-width, prominent */}
+                    <button
+                      onClick={() => setExpandedComments((p) => { const n = new Set(p); n.has(song.id) ? n.delete(song.id) : n.add(song.id); return n; })}
+                      className={`mx-4 mb-3 flex items-center justify-center gap-2 w-[calc(100%-2rem)] py-2.5 rounded-xl text-xs font-semibold border transition-all active:scale-[.99] ${
+                        isExpanded
+                          ? "border-blue-500/50 text-blue-200 bg-blue-500/15"
+                          : songComments.length > 0
+                          ? "border-blue-500/40 text-blue-300 bg-blue-500/10 hover:bg-blue-500/15"
+                          : "border-zinc-800 text-zinc-400 hover:border-blue-500/30 hover:text-blue-300"
+                      }`}>
+                      <IComment />
+                      <span>
+                        {songComments.length === 0
+                          ? "Be the first to comment"
+                          : `${songComments.length} comment${songComments.length === 1 ? "" : "s"}`}
+                      </span>
+                    </button>
 
                     {/* Guess who — available after commenting, before reveal */}
                     {!identitiesRevealed && !isOwnSong && commented && otherPlayers.length > 0 && (
@@ -1736,6 +1782,31 @@ export default function App() {
                         }
                       </div>
                     )}
+
+                    {/* Guess breakdown — who got it right vs wrong */}
+                    {identitiesRevealed && (() => {
+                      const songGuesses = allGuesses[song.id] || [];
+                      if (songGuesses.length === 0) return null;
+                      const correct = songGuesses.filter((g) => g.guessedUserId === song.user_id);
+                      const wrong = songGuesses.filter((g) => g.guessedUserId !== song.user_id);
+                      const nameOf = (id: string) => profilesMap[id]?.name?.split(" ")[0] ?? "Player";
+                      return (
+                        <div className="px-4 pb-3 border-t border-zinc-800/40 pt-2.5 space-y-1.5">
+                          {correct.length > 0 && (
+                            <p className="text-xs text-zinc-400">
+                              <span className="text-green-400 font-medium">Nailed it:</span>{" "}
+                              <span className="text-zinc-300">{correct.map((g) => nameOf(g.userId)).join(", ")}</span>
+                            </p>
+                          )}
+                          {wrong.length > 0 && (
+                            <p className="text-xs text-zinc-400">
+                              <span className="text-zinc-500 font-medium">Fooled:</span>{" "}
+                              <span className="text-zinc-500">{wrong.map((g) => nameOf(g.userId)).join(", ")}</span>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Comments */}
                     {isExpanded && (
@@ -1827,8 +1898,6 @@ export default function App() {
                 );
               });
               })()}
-
-
             </div>
 
             {/* Host controls */}
