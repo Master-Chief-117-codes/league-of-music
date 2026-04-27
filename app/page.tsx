@@ -1436,9 +1436,9 @@ export default function App() {
                     {[
                       ["1", "Someone picks a prompt", 'e.g. "songs that go hard at 3am"'],
                       ["2", "Everyone submits a song", "paste a Spotify or Apple Music link that fits"],
-                      ["3", "Listen, react & comment", "react to every song and leave at least one comment to unlock voting"],
-                      ["4", "Vote for your favorites", "rank your top 3 (or 4!) — pick what fits the prompt best, or just your favorite"],
-                      ["5", "Guess & reveal", "who submitted what? find out at the end"],
+                      ["3", "React to every song + leave ≥1 comment", "you must react to each song and comment at least once to unlock voting"],
+                      ["4", "Vote & guess", "rank your favorites (top 3, or 4 in bigger groups) — vote for what fits the prompt or just what you love. Guess who submitted each song before the reveal!"],
+                      ["5", "Scores & reveal", "identities revealed, points tallied"],
                     ].map(([num, title, sub]) => (
                       <div key={num} className="flex gap-3 items-start">
                         <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{num}</span>
@@ -1494,10 +1494,9 @@ export default function App() {
                   {[
                     { n: "1", title: "Submit a song!", sub: null },
                     { n: "2", title: "All songs revealed", sub: "Songs stay hidden until everyone has submitted." },
-                    { n: "3", title: "⚡ Listen, react & comment", sub: "React to every song and leave at least one comment to unlock voting." },
-                    { n: "4", title: "Vote for your favorites", sub: "Rank your top 3 (or 4 in bigger groups) — vote for what fits the prompt best, or just your favorite." },
-                    { n: "5", title: "Guess who submitted each song", sub: "This is just for fun!" },
-                    { n: "6", title: "Scores tallied!", sub: null },
+                    { n: "3", title: "⚡ React to every song + leave at least 1 comment", sub: "You must react to each song and comment at least once — then voting unlocks." },
+                    { n: "4", title: "Vote & guess", sub: "Rank your top 3 (or top 4 in groups of 6+). Vote for what fits the prompt, or just your favorite. Guess who submitted each song before the reveal!" },
+                    { n: "5", title: "Scores & reveal", sub: "Identities revealed and points tallied. Non-voters lose 2 pts." },
                   ].map(({ n, title, sub }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1615,6 +1614,34 @@ export default function App() {
                   )}
                 </div>
               )}
+              {/* Reveal shame board — who didn't submit / didn't vote */}
+              {identitiesRevealed && (() => {
+                const submittedIds = new Set(submissions.map((s: any) => s.user_id));
+                const nonSubmitters = Object.values(profilesMap).filter((p: any) => !submittedIds.has(p.id));
+                const nonVoters = Object.values(profilesMap).filter((p: any) => !voteLocks.has(p.id));
+                if (nonSubmitters.length === 0 && nonVoters.length === 0) return null;
+                const firstName = (p: any) => p.name?.split(" ")[0] ?? "Player";
+                return (
+                  <div className="space-y-2 pb-1">
+                    {nonVoters.length > 0 && (
+                      <div className="px-4 py-3 rounded-2xl border border-red-500/25 bg-red-500/5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-semibold text-red-400/80 uppercase tracking-widest">Didn't vote</p>
+                          <span className="text-lg font-bold text-red-500">-2 pts</span>
+                        </div>
+                        <p className="text-sm text-red-200/80">{nonVoters.map(firstName).join(", ")}</p>
+                      </div>
+                    )}
+                    {nonSubmitters.length > 0 && (
+                      <div className="px-4 py-3 rounded-2xl border border-zinc-700/40 bg-zinc-900/50 space-y-1">
+                        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Didn't submit</p>
+                        <p className="text-sm text-zinc-400">{nonSubmitters.map(firstName).join(", ")}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {submissionsLocked && (() => {
                 const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
                 const allReacted = otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id));
