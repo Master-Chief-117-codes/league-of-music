@@ -6,7 +6,8 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1 };
+const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1, 4: 0.5 };
+const NON_VOTER_PENALTY = -2;
 
 export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -31,9 +32,11 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Compute scores from votes
-  const [{ data: submissions }, { data: votes }] = await Promise.all([
+  const [{ data: submissions }, { data: votes }, { data: members }, { data: lockedVoters }] = await Promise.all([
     admin.from("song_submissions").select("id, user_id").eq("week_id", weekId),
     admin.from("song_votes").select("submission_id, rank").eq("week_id", weekId),
+    admin.from("league_members").select("user_id").eq("league_id", leagueId),
+    admin.from("vote_locks").select("user_id").eq("week_id", weekId),
   ]);
 
   const scores: Record<string, number> = {};
@@ -66,6 +69,17 @@ export async function POST(req: Request) {
     for (const s of ranked.filter((s: any) => s.score === topScore)) {
       await admin.rpc("increment_league_wins", { league_id_input: leagueId, user_id_input: s.user_id });
     }
+  }
+
+  // Penalise members who didn't lock in votes
+  const lockedIds = new Set((lockedVoters || []).map((v: any) => v.user_id));
+  const nonVoters = (members || []).filter((m: any) => !lockedIds.has(m.user_id));
+  for (const m of nonVoters) {
+    await admin.rpc("add_league_points", {
+      league_id_input: leagueId,
+      user_id_input: m.user_id,
+      points_to_add: NON_VOTER_PENALTY,
+    });
   }
 
   return NextResponse.json({ ok: true });
