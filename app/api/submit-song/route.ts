@@ -9,8 +9,9 @@ const admin = createClient(
 const getSpotifyTrackId = (url: string) =>
   url.match(/open\.spotify\.com(?:\/intl-[\w-]+)?\/track\/([a-zA-Z0-9]+)/)?.[1] ?? null;
 
+// Matches album URLs (most common) and direct song URLs
 const isAppleMusicUrl = (url: string) =>
-  /music\.apple\.com\/.+\/album\/.+/.test(url);
+  /music\.apple\.com\/.+\/(album|song)\/.+/.test(url);
 
 const isValidMusicUrl = (url: string) =>
   getSpotifyTrackId(url) !== null || isAppleMusicUrl(url);
@@ -20,11 +21,16 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
 
+  console.log("[Apple→Spotify] Resolving:", appleMusicUrl);
+
   // Fetch Apple Music page to extract title/artist from JSON-LD or og tags
   const pageRes = await fetch(appleMusicUrl, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; bot)" },
+    headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
   }).catch(() => null);
-  if (!pageRes?.ok) return null;
+  if (!pageRes?.ok) {
+    console.log("[Apple→Spotify] Page fetch failed:", pageRes?.status);
+    return null;
+  }
   const html = await pageRes.text();
 
   // Try JSON-LD first (most reliable)
@@ -37,21 +43,32 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
       const record = Array.isArray(ld) ? ld.find((x: any) => x["@type"] === "MusicRecording") : ld;
       title = record?.name ?? "";
       artist = record?.byArtist?.name ?? record?.byArtist?.[0]?.name ?? "";
-    } catch {}
+      console.log("[Apple→Spotify] JSON-LD:", { title, artist });
+    } catch (e) {
+      console.log("[Apple→Spotify] JSON-LD parse error:", e);
+    }
   }
 
   // Fall back to og tags
   if (!title) {
     title = html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] ?? "";
+    console.log("[Apple→Spotify] og:title fallback:", title);
   }
   if (!artist) {
     // Page <title> is often "Song · Artist · Album · Year · Genre"
     const pageTitle = html.match(/<title>([^<]+)<\/title>/)?.[1] ?? "";
     const parts = pageTitle.split("·").map((s) => s.trim());
     if (parts.length >= 2) { title = title || parts[0]; artist = parts[1]; }
+    console.log("[Apple→Spotify] title-tag fallback:", { title, artist, pageTitle });
   }
 
-  if (!title) return null;
+  // Strip " - Single" / " - EP" suffixes that confuse Spotify search
+  title = title.replace(/\s*-\s*(Single|EP|Album)$/i, "").trim();
+
+  if (!title) {
+    console.log("[Apple→Spotify] Could not extract title — giving up");
+    return null;
+  }
 
   // Get Spotify app token (client credentials)
   const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
@@ -59,17 +76,29 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
   }).catch(() => null);
-  if (!tokenRes?.ok) return null;
+  if (!tokenRes?.ok) {
+    console.log("[Apple→Spotify] Spotify token fetch failed");
+    return null;
+  }
   const { access_token } = await tokenRes.json();
 
-  const q = artist ? `track:${title} artist:${artist}` : title;
-  const searchRes = await fetch(
-    `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`,
-    { headers: { Authorization: `Bearer ${access_token}` } }
-  ).catch(() => null);
-  if (!searchRes?.ok) return null;
-  const { tracks } = await searchRes.json();
-  return tracks?.items?.[0]?.id ?? null;
+  // Try strict query first, then fall back to title-only
+  const queries = artist
+    ? [`track:${title} artist:${artist}`, title]
+    : [title];
+
+  for (const q of queries) {
+    const searchRes = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`,
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    ).catch(() => null);
+    if (!searchRes?.ok) continue;
+    const { tracks } = await searchRes.json();
+    const found = tracks?.items?.[0]?.id ?? null;
+    console.log("[Apple→Spotify] Search q:", q, "→", found ?? "no match");
+    if (found) return found;
+  }
+  return null;
 }
 
 export async function POST(req: Request) {

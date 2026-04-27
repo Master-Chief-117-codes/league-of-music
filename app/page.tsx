@@ -257,6 +257,7 @@ export default function App() {
   );
   const [exportingPlaylist, setExportingPlaylist] = useState(false);
   const [voteLocks, setVoteLocks] = useState<Set<string>>(new Set());
+  const [readyUsers, setReadyUsers] = useState<Set<string>>(new Set());
 
   /* ── Reveal animation ── */
   const [justRevealed, setJustRevealed] = useState(false);
@@ -438,8 +439,12 @@ export default function App() {
   const loadAllForWeek = useCallback(async (weekId: string) => {
     const userId = userIdRef.current;
 
-    const { data: vl } = await supabase.from("vote_locks").select("user_id").eq("week_id", weekId);
+    const [{ data: vl }, { data: ready }] = await Promise.all([
+      supabase.from("vote_locks").select("user_id").eq("week_id", weekId),
+      supabase.from("round_ready").select("user_id").eq("week_id", weekId),
+    ]);
     setVoteLocks(new Set((vl || []).map((l: any) => l.user_id)));
+    setReadyUsers(new Set((ready || []).map((r: any) => r.user_id)));
 
     const { data: songs } = await supabase.from("song_submissions").select("*").eq("week_id", weekId);
     const list = songs || [];
@@ -575,6 +580,7 @@ export default function App() {
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "comment_laughs", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "vote_locks", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
+      .on("postgres_changes", { event: "*", schema: "public", table: "round_ready", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [week?.id, loadAllForWeek]);
@@ -817,6 +823,18 @@ export default function App() {
       body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
     });
     if (res.ok) setVoteLocks((prev) => new Set([...prev, session.user.id]));
+  };
+
+  const toggleReady = async () => {
+    if (!week || !session) return;
+    const isReady = readyUsers.has(session.user.id);
+    if (isReady) {
+      await supabase.from("round_ready").delete().eq("week_id", week.id).eq("user_id", session.user.id);
+      setReadyUsers((prev) => { const next = new Set(prev); next.delete(session.user.id); return next; });
+    } else {
+      await supabase.from("round_ready").insert({ week_id: week.id, user_id: session.user.id });
+      setReadyUsers((prev) => new Set([...prev, session.user.id]));
+    }
   };
 
   const startNewRound = async (overrideAuthorId?: string) => {
@@ -1642,6 +1660,13 @@ export default function App() {
                 );
               })()}
 
+              {submissionsLocked && submissions.length > 0 && process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
+                <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
+                  className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                  {exportingPlaylist ? "Creating playlist…" : hasSpotifyConnection ? "Export Playlist to Spotify" : "Connect Spotify to Export Playlist"}
+                </button>
+              )}
+
               {submissionsLocked && (() => {
                 const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
                 const allReacted = otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id));
@@ -1679,6 +1704,7 @@ export default function App() {
                           style={justRevealed ? { animationDelay: `${index * 80}ms` } : {}}>
                           <Avatar name={submitterName} url={isOwnSong ? profile?.avatar_url : profilesMap[song.user_id]?.avatar_url} size="sm" />
                           <span className="font-medium">{submitterName}</span>
+                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400 leading-none">-2</span>}
                         </button>
                       )}
                     </div>
@@ -1708,7 +1734,10 @@ export default function App() {
                     {/* Score + ranking buttons */}
                     <div className="flex items-center justify-between px-4 py-3">
                       {identitiesRevealed && score > 0 ? (
-                        <span className="text-sm font-bold text-green-400 tabular-nums">{fmtScore(score)} pts</span>
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="text-sm font-bold text-green-400 tabular-nums">{fmtScore(score)} pts</span>
+                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400">-2</span>}
+                        </span>
                       ) : (
                         <span />
                       )}
@@ -1927,6 +1956,31 @@ export default function App() {
                 );
               });
               })()}
+
+              {/* Ready for next round */}
+              {identitiesRevealed && (
+                <div className="pt-5 border-t border-zinc-900 space-y-3">
+                  <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Next Round</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-zinc-600">
+                      <span>{[...readyUsers].map((id) => id === session.user.id ? "You" : profilesMap[id]?.name?.split(" ")[0]).filter(Boolean).join(", ") || "No one yet"}</span>
+                      <span className="tabular-nums">{readyUsers.size} / {Object.keys(profilesMap).length}</span>
+                    </div>
+                    <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 rounded-full transition-all duration-500"
+                        style={{ width: `${(readyUsers.size / Math.max(1, Object.keys(profilesMap).length)) * 100}%` }} />
+                    </div>
+                  </div>
+                  <button onClick={toggleReady}
+                    className={`w-full py-3.5 text-sm font-semibold rounded-2xl border transition-all active:scale-[.98] ${
+                      readyUsers.has(session.user.id)
+                        ? "bg-green-500/15 border-green-500/40 text-green-300"
+                        : "border-zinc-700 text-zinc-400 hover:border-green-500/40 hover:text-green-300"
+                    }`}>
+                    {readyUsers.has(session.user.id) ? "👍 Ready!" : "Ready for next round?"}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Host controls */}
