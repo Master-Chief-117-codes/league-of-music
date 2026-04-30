@@ -1274,7 +1274,7 @@ export default function App() {
                 <button onClick={() => { setProfilesMap((p) => ({ ...p, [session.user.id]: profile })); setViewingUserId(session.user.id); }}
                   className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-full transition-colors">
                   <Avatar name={profile.name} url={profile.avatar_url} size="sm" />
-                  <span className="text-zinc-300 text-xs font-medium">{profile.name.split(" ")[0]}</span>
+                  <span className="text-zinc-300 text-xs font-medium">{profile.name}</span>
                 </button>
               )}
               <button onClick={logout} className="p-2 text-zinc-600 hover:text-zinc-300 transition-colors"><ILogout /></button>
@@ -1402,7 +1402,7 @@ export default function App() {
               <button onClick={() => setViewingUserId(session.user.id)}
                 className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-full transition-colors">
                 <Avatar name={profile.name} url={profile.avatar_url} size="sm" />
-                <span className="text-zinc-300 text-xs font-medium">{profile.name.split(" ")[0]}</span>
+                <span className="text-zinc-300 text-xs font-medium">{profile.name}</span>
               </button>
             )}
             <button onClick={logout} className="p-2 text-zinc-600 hover:text-zinc-300 transition-colors"><ILogout /></button>
@@ -1521,7 +1521,7 @@ export default function App() {
                     { n: "2", title: "All songs revealed", sub: "Songs stay hidden until everyone has submitted." },
                     { n: "3", title: "⚡ React to every song + leave at least 1 comment", sub: "You must react to each song and comment at least once — then voting unlocks." },
                     { n: "4", title: "Vote & guess", sub: "Rank your top 3 (or top 4 in groups of 6+). Vote for what fits the prompt, or just your favorite. Guess who submitted each song before the reveal!" },
-                    { n: "5", title: "Scores & reveal", sub: "Identities revealed and points tallied. Non-voters lose 2 pts." },
+                    { n: "5", title: "Scores & reveal", sub: "Identities revealed and points tallied. Non-voters lose 1 pt." },
                   ].map(({ n, title, sub }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1574,7 +1574,7 @@ export default function App() {
                     <div className="px-3 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
                       <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on</p>
                       <p className="text-xs text-amber-200/90 leading-snug">
-                        {notSubmitted.map((p: any) => p.name?.split(" ")[0] ?? "Player").join(", ")}
+                        {notSubmitted.map((p: any) => p.name ?? "Player").join(", ")}
                       </p>
                     </div>
                   )}
@@ -1617,7 +1617,7 @@ export default function App() {
                       <div className="px-3 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
                         <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on votes from</p>
                         <p className="text-xs text-amber-200/90 leading-snug">
-                          {notLocked.map((p: any) => p.name?.split(" ")[0] ?? "Player").join(", ")}
+                          {notLocked.map((p: any) => p.name ?? "Player").join(", ")}
                         </p>
                       </div>
                     );
@@ -1645,7 +1645,7 @@ export default function App() {
                 const nonSubmitters = Object.values(profilesMap).filter((p: any) => !submittedIds.has(p.id));
                 const nonVoters = Object.values(profilesMap).filter((p: any) => !voteLocks.has(p.id));
                 if (nonSubmitters.length === 0 && nonVoters.length === 0) return null;
-                const firstName = (p: any) => p.name?.split(" ")[0] ?? "Player";
+                const firstName = (p: any) => p.name ?? "Player";
                 return (
                   <div className="space-y-2 pb-1">
                     {nonVoters.length > 0 && (
@@ -1831,7 +1831,7 @@ export default function App() {
                                   ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
                                   : "border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
                               }`}>
-                              {p.name.split(" ")[0]}
+                              {p.name}
                             </button>
                           ))}
                         </div>
@@ -1843,7 +1843,7 @@ export default function App() {
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-2.5">
                         {myGuess === song.user_id
                           ? <p className="text-xs text-green-400 font-medium">✓ You guessed right!</p>
-                          : <p className="text-xs text-zinc-500">✗ You guessed <span className="text-zinc-400">{profilesMap[myGuess]?.name?.split(" ")[0] || "?"}</span></p>
+                          : <p className="text-xs text-zinc-500">✗ You guessed <span className="text-zinc-400">{profilesMap[myGuess]?.name || "?"}</span></p>
                         }
                       </div>
                     )}
@@ -1854,7 +1854,7 @@ export default function App() {
                       if (songGuesses.length === 0) return null;
                       const correct = songGuesses.filter((g) => g.guessedUserId === song.user_id);
                       const wrong = songGuesses.filter((g) => g.guessedUserId !== song.user_id);
-                      const nameOf = (id: string) => profilesMap[id]?.name?.split(" ")[0] ?? "Player";
+                      const nameOf = (id: string) => profilesMap[id]?.name ?? "Player";
                       return (
                         <div className="px-4 pb-3 border-t border-zinc-800/40 pt-2.5 space-y-1.5">
                           {correct.length > 0 && (
@@ -1885,7 +1885,7 @@ export default function App() {
                             <div key={c.id} className="flex items-start justify-between gap-2">
                               <div className="space-y-0.5 flex-1 min-w-0">
                                 <span className="text-[11px] font-semibold text-zinc-500">
-                                  {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name?.split(" ")[0] || "Player"}
+                                  {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name || "Player"}
                                 </span>
                                 {c.text && <p className="text-sm text-zinc-300 leading-snug break-words">{renderMentions(c.text)}</p>}
                                 {c.media_url && (
@@ -1916,16 +1916,16 @@ export default function App() {
                           const suggestions = ms
                             ? Object.values(profilesMap)
                                 .filter((p: any) => p.id !== session.user.id)
-                                .filter((p: any) => p.name?.split(" ")[0]?.toLowerCase().startsWith(ms.query))
+                                .filter((p: any) => p.name?.toLowerCase().split(" ").some((w: string) => w.startsWith(ms.query)))
                             : [];
                           return (
                             <div className="pt-1 space-y-1.5">
                               {suggestions.length > 0 && (
                                 <div className="flex gap-1.5 flex-wrap">
                                   {(suggestions as any[]).map((p: any) => (
-                                    <button key={p.id} onMouseDown={(e) => { e.preventDefault(); insertMention(song.id, p.name.split(" ")[0]); }}
+                                    <button key={p.id} onMouseDown={(e) => { e.preventDefault(); insertMention(song.id, p.name); }}
                                       className="px-2.5 py-0.5 text-xs rounded-full border border-blue-500/30 text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
-                                      @{p.name.split(" ")[0]}
+                                      @{p.name}
                                     </button>
                                   ))}
                                 </div>
@@ -1970,7 +1970,7 @@ export default function App() {
                   <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Next Round</p>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs text-zinc-600">
-                      <span>{[...readyUsers].map((id) => id === session.user.id ? "You" : profilesMap[id]?.name?.split(" ")[0]).filter(Boolean).join(", ") || "No one yet"}</span>
+                      <span>{[...readyUsers].map((id) => id === session.user.id ? "You" : profilesMap[id]?.name).filter(Boolean).join(", ") || "No one yet"}</span>
                       <span className="tabular-nums">{readyUsers.size} / {Object.keys(profilesMap).length}</span>
                     </div>
                     <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
@@ -2041,7 +2041,7 @@ export default function App() {
                               {Object.values(profilesMap).map((p: any) => (
                                 <button key={p.id} onClick={() => setNewRoundPick(p.id)}
                                   className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === p.id ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
-                                  {p.name.split(" ")[0]}
+                                  {p.name}
                                 </button>
                               ))}
                             </div>
@@ -2247,7 +2247,7 @@ export default function App() {
                                 {s.comments.map((c: any) => (
                                   <div key={c.submission_id + c.user_id + c.text} className="space-y-0.5">
                                     <span className="text-[11px] font-semibold text-zinc-500">
-                                      {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name?.split(" ")[0] || "Player"}
+                                      {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name || "Player"}
                                     </span>
                                     {c.text && <p className="text-xs text-zinc-400 leading-snug">{renderMentions(c.text)}</p>}
                                     {c.media_url && <img src={c.media_url} alt="" className="max-h-32 rounded-lg object-contain mt-1" />}
