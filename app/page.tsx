@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 
-const EMOJIS = ["🔥", "❤️", "😂", "💯", "🤯", "🥹", "🎯", "👀"] as const;
+const EMOJIS = ["🔥", "❤️", "😂", "💯", "🤯", "🥹", "🎯", "👀", "😭", "🫶", "💀", "🎵"] as const;
 const RANK_PTS: Record<number, number> = { 1: 2, 2: 1.5, 3: 1, 4: 0.5 };
 
 /* ─── Helpers ─── */
@@ -210,6 +210,7 @@ export default function App() {
   /* ── Ranked voting ── */
   const [myRanks, setMyRanks] = useState<Record<string, number>>({});      // submissionId -> rank (1/2/3)
   const [voteScores, setVoteScores] = useState<Record<string, number>>({});  // submissionId -> weighted score
+  const isVotingRef = useRef(false);
 
   /* ── Reactions ── */
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
@@ -469,7 +470,7 @@ export default function App() {
       }
     });
     setVoteScores(scores);
-    setMyRanks(myRanksMap);
+    if (!isVotingRef.current) setMyRanks(myRanksMap);
 
     const subIds = list.map((s: any) => s.id as string);
     if (!subIds.length) return;
@@ -622,17 +623,24 @@ export default function App() {
   const loadHistory = useCallback(async () => {
     if (!selectedLeagueId) return;
     setLoadingHistory(true);
-    const [{ data: weeks }, { data: songs }, { data: votes }, { data: rxData }, { data: cmtData }] = await Promise.all([
+    const [{ data: weeks }, { data: songs }, { data: votes }, { data: rxData }, { data: cmtData }, { data: lockData }] = await Promise.all([
       supabase.from("weeks").select("*").eq("league_id", selectedLeagueId).order("created_at", { ascending: false }),
       supabase.from("song_submissions").select("*"),
       supabase.from("song_votes").select("submission_id, rank"),
       supabase.from("song_reactions").select("submission_id, emoji"),
       supabase.from("song_comments").select("submission_id, user_id, text, media_url").order("created_at", { ascending: true }),
+      supabase.from("vote_locks").select("week_id, user_id"),
     ]);
 
     // Weighted scores for history
     const vm: Record<string, number> = {};
     votes?.forEach((v: any) => { if (v.rank) vm[v.submission_id] = (vm[v.submission_id] || 0) + (RANK_PTS[v.rank] || 0); });
+
+    const lockedByWeek: Record<string, Set<string>> = {};
+    lockData?.forEach((l: any) => {
+      if (!lockedByWeek[l.week_id]) lockedByWeek[l.week_id] = new Set();
+      lockedByWeek[l.week_id].add(l.user_id);
+    });
 
     const rxBySub: Record<string, Record<string, number>> = {};
     rxData?.forEach((r: any) => {
@@ -654,7 +662,11 @@ export default function App() {
     });
 
     setHistory((weeks || []).map((w: any) => {
-      const ws = (sbw[w.id] || []).sort((a: any, b: any) => b.score - a.score);
+      const lockedSet = lockedByWeek[w.id] || new Set();
+      const ws = (sbw[w.id] || []).map((s: any) => ({
+        ...s,
+        score: lockedSet.has(s.user_id) ? s.score : Math.max(0, s.score - 1),
+      })).sort((a: any, b: any) => b.score - a.score);
       const maxS = ws.length ? Math.max(...ws.map((s: any) => s.score)) : 0;
       return { ...w, songs: ws, winners: maxS > 0 ? ws.filter((s: any) => s.score === maxS) : [] };
     }));
@@ -706,20 +718,32 @@ export default function App() {
       return next;
     });
 
-    // Collect IDs whose existing votes must be deleted first
-    const idsToDelete = new Set<string>();
-    if (prevRankOfSong !== undefined) idsToDelete.add(submissionId);
-    if (!isToggling && prevSongAtRank) idsToDelete.add(prevSongAtRank);
+    isVotingRef.current = true;
+    try {
+      // Delete the displaced song's vote first (if another song had this rank)
+      if (!isToggling && prevSongAtRank) {
+        await supabase.from("song_votes").delete()
+          .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", prevSongAtRank);
+      }
 
-    for (const id of idsToDelete) {
-      await supabase.from("song_votes").delete()
-        .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", id);
-    }
-
-    if (!isToggling) {
-      await supabase.from("song_votes").insert({
-        week_id: week.id, voter_id: session.user.id, submission_id: submissionId, rank: newRank,
-      });
+      if (isToggling) {
+        // Remove the vote entirely
+        await supabase.from("song_votes").delete()
+          .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", submissionId);
+      } else if (prevRankOfSong !== undefined) {
+        // Update rank in place — delete old then insert new so the unique rank constraint is satisfied
+        await supabase.from("song_votes").delete()
+          .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", submissionId);
+        await supabase.from("song_votes").insert({
+          week_id: week.id, voter_id: session.user.id, submission_id: submissionId, rank: newRank,
+        });
+      } else {
+        await supabase.from("song_votes").insert({
+          week_id: week.id, voter_id: session.user.id, submission_id: submissionId, rank: newRank,
+        });
+      }
+    } finally {
+      isVotingRef.current = false;
     }
   };
 
@@ -1359,9 +1383,6 @@ export default function App() {
   const promptAuthorName = profilesMap[week?.prompt_author_id]?.name ?? "Someone";
   const promptDeadlinePassed = week?.prompt_deadline ? new Date(week.prompt_deadline) < new Date() : false;
 
-  // Has the current user commented on a given song?
-  const hasCommentedOn = (songId: string) =>
-    comments[songId]?.some((c: any) => c.user_id === session.user.id) ?? false;
   // Has the current user reacted to a given song with any emoji?
   const hasReactedTo = (songId: string) => (myReactions[songId]?.size ?? 0) > 0;
   // Total comments the current user has made across all songs this round
@@ -1669,7 +1690,7 @@ export default function App() {
 
               {submissionsLocked && submissions.length > 0 && process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
                 <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
-                  className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                  className="w-full py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
                   {exportingPlaylist ? "Creating playlist…" : hasSpotifyConnection ? "Export Playlist to Spotify" : "Connect Spotify to Export Playlist"}
                 </button>
               )}
@@ -1690,7 +1711,6 @@ export default function App() {
                 const isExpanded = expandedComments.has(song.id);
                 const myGuess = guesses[song.id];
                 const otherPlayers = Object.values(profilesMap).filter((p: any) => p.id !== session.user.id);
-                const commented = hasCommentedOn(song.id);
 
                 return (
                   <div key={song.id}
@@ -1813,8 +1833,8 @@ export default function App() {
                       </span>
                     </button>
 
-                    {/* Guess who — available after commenting, before reveal */}
-                    {!identitiesRevealed && !isOwnSong && commented && otherPlayers.length > 0 && (
+                    {/* Guess who — available once voting is unlocked, before reveal */}
+                    {!identitiesRevealed && !isOwnSong && canVote && otherPlayers.length > 0 && (
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-3">
                         <p className="text-[11px] text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
@@ -2114,7 +2134,7 @@ export default function App() {
                         {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
                           submissionsLocked && submissions.length > 0 ? (
                             <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
-                              className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                              className="py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
                               {exportingPlaylist ? "Creating…" : hasSpotifyConnection ? "Export Playlist" : "Connect Spotify"}
                             </button>
                           ) : hasSpotifyConnection ? (
