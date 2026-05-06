@@ -297,8 +297,16 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+    const error = params.get("error");
     const state = params.get("state");
     const saved = localStorage.getItem("spotify_state");
+    if (error && state === saved && state?.startsWith("league_spotify_")) {
+      window.history.replaceState({}, "", window.location.pathname);
+      localStorage.removeItem("spotify_verifier");
+      localStorage.removeItem("spotify_state");
+      toast("Spotify access denied — your account may not be authorized for this app yet.", "error");
+      return;
+    }
     if (code && state && state === saved && state.startsWith("league_spotify_")) {
       const verifier = localStorage.getItem("spotify_verifier") ?? "";
       window.history.replaceState({}, "", window.location.pathname);
