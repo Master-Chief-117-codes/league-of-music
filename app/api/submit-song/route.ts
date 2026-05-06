@@ -16,6 +16,32 @@ const isAppleMusicUrl = (url: string) =>
 const isValidMusicUrl = (url: string) =>
   getSpotifyTrackId(url) !== null || isAppleMusicUrl(url);
 
+async function getSpotifyClientToken(): Promise<string | null> {
+  const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  return (await res.json()).access_token ?? null;
+}
+
+async function fetchTrackMeta(trackId: string, accessToken: string): Promise<{ track_name: string; artist_name: string; album_art_url: string } | null> {
+  const res = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const t = await res.json();
+  return {
+    track_name: t.name ?? "",
+    artist_name: t.artists?.[0]?.name ?? "",
+    album_art_url: t.album?.images?.[1]?.url ?? t.album?.images?.[0]?.url ?? "",
+  };
+}
+
 async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string | null> {
   const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
@@ -70,17 +96,11 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
     return null;
   }
 
-  // Get Spotify app token (client credentials)
-  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
-  }).catch(() => null);
-  if (!tokenRes?.ok) {
+  const access_token = await getSpotifyClientToken();
+  if (!access_token) {
     console.log("[Apple→Spotify] Spotify token fetch failed");
     return null;
   }
-  const { access_token } = await tokenRes.json();
 
   // Try strict query first, then fall back to title-only
   const queries = artist
@@ -136,15 +156,24 @@ export async function POST(req: Request) {
 
   if (existing) return NextResponse.json({ error: "Already submitted" }, { status: 400 });
 
-  const resolvedSpotifyId = isAppleMusicUrl(spotifyUrl.trim())
+  const isApple = isAppleMusicUrl(spotifyUrl.trim());
+  const resolvedSpotifyId = isApple
     ? await resolveAppleMusicToSpotify(spotifyUrl.trim()).catch(() => null)
     : null;
+
+  const finalTrackId = resolvedSpotifyId ?? (!isApple ? getSpotifyTrackId(spotifyUrl.trim()) : null);
+  let meta: { track_name: string; artist_name: string; album_art_url: string } | null = null;
+  if (finalTrackId) {
+    const token = await getSpotifyClientToken().catch(() => null);
+    if (token) meta = await fetchTrackMeta(finalTrackId, token).catch(() => null);
+  }
 
   const { error } = await admin.from("song_submissions").insert({
     week_id: weekId,
     user_id: user.id,
     spotify_url: spotifyUrl.trim(),
     ...(resolvedSpotifyId ? { resolved_spotify_id: resolvedSpotifyId } : {}),
+    ...(meta ?? {}),
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

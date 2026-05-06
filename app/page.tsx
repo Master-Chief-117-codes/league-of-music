@@ -28,7 +28,6 @@ const getAppleMusicEmbedUrl = (url: string) =>
 const isMusicUrl = (url: string) =>
   getSpotifyTrackId(url.trim()) !== null || isAppleMusicUrl(url.trim());
 
-const isSpotifyUrl = (url: string) => getSpotifyTrackId(url.trim()) !== null;
 
 const initials = (name: string) =>
   name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -1797,12 +1796,27 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Song link */}
+                    {/* Song card */}
                     {song.spotify_url && (
                       <div className="px-3">
                         <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-zinc-800 text-xs font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors">
-                          {isAppleMusicUrl(song.spotify_url) ? "Listen on Apple Music" : "Listen on Spotify"}
+                          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border border-zinc-800 hover:border-zinc-600 transition-colors group">
+                          {song.album_art_url && (
+                            <img src={song.album_art_url} alt="" className="w-12 h-12 rounded-lg flex-shrink-0 object-cover" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            {song.track_name ? (
+                              <>
+                                <p className="text-sm font-semibold text-zinc-200 truncate group-hover:text-white">{song.track_name}</p>
+                                <p className="text-xs text-zinc-500 truncate">{song.artist_name}</p>
+                              </>
+                            ) : (
+                              <p className="text-xs text-zinc-500">{isAppleMusicUrl(song.spotify_url) ? "Listen on Apple Music" : "Listen on Spotify"}</p>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-zinc-600 group-hover:text-zinc-400 flex-shrink-0">
+                            {isAppleMusicUrl(song.spotify_url) ? "Apple Music ↗" : "Spotify ↗"}
+                          </span>
                         </a>
                       </div>
                     )}
