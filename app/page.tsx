@@ -257,6 +257,7 @@ export default function App() {
     typeof window !== "undefined" ? localStorage.getItem("spotify_refresh_token") : null
   );
   const [exportingPlaylist, setExportingPlaylist] = useState(false);
+  const [playlistPasteInput, setPlaylistPasteInput] = useState("");
   const [voteLocks, setVoteLocks] = useState<Set<string>>(new Set());
   const [readyUsers, setReadyUsers] = useState<Set<string>>(new Set());
 
@@ -267,7 +268,6 @@ export default function App() {
   const [transferring, setTransferring] = useState(false);
   const [expandedHistoryComments, setExpandedHistoryComments] = useState<Set<string>>(new Set());
   const [newRoundPick, setNewRoundPick] = useState<string | null>(null); // null = not expanded, "random" or userId
-  const [activeSongId, setActiveSongId] = useState<string | null>(null);
   const [renamingLeague, setRenamingLeague] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -1029,8 +1029,13 @@ export default function App() {
         toast(`Add tracks failed: ${addData.error?.message ?? addRes.status}`, "error");
         return;
       }
+      const playlistUrl = `https://open.spotify.com/playlist/${playlist.id}`;
       toast("Playlist created! Opening…", "success");
-      window.open(`https://open.spotify.com/playlist/${playlist.id}`, "_blank");
+      window.open(playlistUrl, "_blank");
+      if (week?.id) {
+        await supabase.from("weeks").update({ playlist_url: playlistUrl }).eq("id", week.id);
+        setWeek((prev: any) => ({ ...prev, playlist_url: playlistUrl }));
+      }
     } catch (e: any) {
       console.error("Spotify export error:", e);
       toast("Spotify export failed: " + (e?.message ?? "unknown"), "error");
@@ -1475,6 +1480,31 @@ export default function App() {
               </div>
             )}
 
+            {/* Ready for next round */}
+            {identitiesRevealed && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Next Round</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-zinc-600">
+                    <span>{[...readyUsers].map((id) => id === session.user.id ? "You" : profilesMap[id]?.name).filter(Boolean).join(", ") || "No one yet"}</span>
+                    <span className="tabular-nums">{readyUsers.size} / {Object.keys(profilesMap).length}</span>
+                  </div>
+                  <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full transition-all duration-500"
+                      style={{ width: `${(readyUsers.size / Math.max(1, Object.keys(profilesMap).length)) * 100}%` }} />
+                  </div>
+                </div>
+                <button onClick={toggleReady}
+                  className={`w-full py-3.5 text-sm font-semibold rounded-2xl border transition-all active:scale-[.98] ${
+                    readyUsers.has(session.user.id)
+                      ? "bg-green-500/15 border-green-500/40 text-green-300"
+                      : "border-zinc-700 text-zinc-400 hover:border-green-500/40 hover:text-green-300"
+                  }`}>
+                  {readyUsers.has(session.user.id) ? "👍 Ready!" : "Ready for next round?"}
+                </button>
+              </div>
+            )}
+
             {/* No rounds yet — welcome screen */}
             {!week && (
               <div className="space-y-6 py-4">
@@ -1696,11 +1726,35 @@ export default function App() {
                 );
               })()}
 
-              {submissionsLocked && submissions.length > 0 && process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
-                <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
-                  className="w-full py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                  {exportingPlaylist ? "Creating playlist…" : hasSpotifyConnection ? "Export Playlist to Spotify" : "Connect Spotify to Export Playlist"}
-                </button>
+              {submissionsLocked && submissions.length > 0 && (
+                week?.playlist_url ? (
+                  <a href={week.playlist_url} target="_blank" rel="noopener noreferrer"
+                    className="w-full py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 transition-colors flex items-center justify-center">
+                    🎵 Listen to Round Playlist
+                  </a>
+                ) : isHost ? (
+                  <div className="space-y-2">
+                    {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
+                      <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
+                        className="w-full py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                        {exportingPlaylist ? "Creating playlist…" : hasSpotifyConnection ? "Export Playlist to Spotify" : "Connect Spotify to Export Playlist"}
+                      </button>
+                    )}
+                    <div className="flex gap-2">
+                      <input value={playlistPasteInput} onChange={(e) => setPlaylistPasteInput(e.target.value)}
+                        placeholder="Or paste a Spotify playlist link…"
+                        className="input flex-1 min-w-0 text-xs" />
+                      <button disabled={!playlistPasteInput.trim()} onClick={async () => {
+                        const url = playlistPasteInput.trim();
+                        await supabase.from("weeks").update({ playlist_url: url }).eq("id", week!.id);
+                        setWeek((prev: any) => ({ ...prev, playlist_url: url }));
+                        setPlaylistPasteInput("");
+                      }} className="btn-primary px-4 text-xs flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : null
               )}
 
               {submissionsLocked && (() => {
@@ -1708,7 +1762,6 @@ export default function App() {
                 const allReacted = otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id));
                 const canVote = allReacted && myTotalComments >= 1;
                 return sorted.map((song, index) => {
-                const trackId = song.resolved_spotify_id || getTrackId(song.spotify_url ?? "") || "";
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
                 const isWinner = identitiesRevealed && score === maxScore && maxScore > 0;
@@ -1744,27 +1797,15 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Music embed — clicking activates this song and remounts others to stop playback */}
-                    {trackId ? (
-                      <div className="px-3 relative">
-                        <iframe key={activeSongId === song.id ? trackId : `${trackId}-idle`}
-                          src={`https://open.spotify.com/embed/track/${trackId}?theme=0`} width="100%" height="80"
-                          allow="autoplay; clipboard-write; encrypted-media" loading="lazy" style={{ borderRadius: "10px" }} />
-                        {activeSongId !== song.id && (
-                          <div className="absolute inset-0" onClick={() => setActiveSongId(song.id)} />
-                        )}
+                    {/* Song link */}
+                    {song.spotify_url && (
+                      <div className="px-3">
+                        <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-zinc-800 text-xs font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors">
+                          {isAppleMusicUrl(song.spotify_url) ? "Listen on Apple Music" : "Listen on Spotify"}
+                        </a>
                       </div>
-                    ) : isAppleMusicUrl(song.spotify_url ?? "") ? (
-                      <div className="px-3 relative">
-                        <iframe key={activeSongId === song.id ? song.id : `${song.id}-idle`}
-                          src={getAppleMusicEmbedUrl(song.spotify_url ?? "")} width="100%" height="150"
-                          allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" loading="lazy"
-                          style={{ borderRadius: "10px", overflow: "hidden", background: "transparent" }} />
-                        {activeSongId !== song.id && (
-                          <div className="absolute inset-0" onClick={() => setActiveSongId(song.id)} />
-                        )}
-                      </div>
-                    ) : null}
+                    )}
 
                     {/* Score + ranking buttons */}
                     <div className="flex items-center justify-between px-4 py-3">
@@ -1992,30 +2033,6 @@ export default function App() {
               });
               })()}
 
-              {/* Ready for next round */}
-              {identitiesRevealed && (
-                <div className="pt-5 border-t border-zinc-900 space-y-3">
-                  <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Next Round</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-zinc-600">
-                      <span>{[...readyUsers].map((id) => id === session.user.id ? "You" : profilesMap[id]?.name).filter(Boolean).join(", ") || "No one yet"}</span>
-                      <span className="tabular-nums">{readyUsers.size} / {Object.keys(profilesMap).length}</span>
-                    </div>
-                    <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500 rounded-full transition-all duration-500"
-                        style={{ width: `${(readyUsers.size / Math.max(1, Object.keys(profilesMap).length)) * 100}%` }} />
-                    </div>
-                  </div>
-                  <button onClick={toggleReady}
-                    className={`w-full py-3.5 text-sm font-semibold rounded-2xl border transition-all active:scale-[.98] ${
-                      readyUsers.has(session.user.id)
-                        ? "bg-green-500/15 border-green-500/40 text-green-300"
-                        : "border-zinc-700 text-zinc-400 hover:border-green-500/40 hover:text-green-300"
-                    }`}>
-                    {readyUsers.has(session.user.id) ? "👍 Ready!" : "Ready for next round?"}
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Host controls */}
@@ -2139,7 +2156,12 @@ export default function App() {
                           className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
                           Invite Link
                         </button>
-                        {process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
+                        {submissionsLocked && submissions.length > 0 && week?.playlist_url ? (
+                          <a href={week.playlist_url} target="_blank" rel="noopener noreferrer"
+                            className="py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 transition-colors flex items-center justify-center">
+                            🎵 Playlist
+                          </a>
+                        ) : process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID && (
                           submissionsLocked && submissions.length > 0 ? (
                             <button onClick={hasSpotifyConnection ? exportToSpotify : startSpotifyAuth} disabled={exportingPlaylist}
                               className="py-3 text-xs font-semibold rounded-xl border border-green-500 bg-green-500 text-black hover:bg-green-400 hover:border-green-400 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
