@@ -1032,7 +1032,7 @@ export default function App() {
       toast("Playlist created! Opening…", "success");
       window.open(playlistUrl, "_blank");
       if (week?.id) {
-        await supabase.from("weeks").update({ playlist_url: playlistUrl }).eq("id", week.id);
+        await fetch("/api/save-playlist-url", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ weekId: week.id, playlistUrl }) });
         setWeek((prev: any) => ({ ...prev, playlist_url: playlistUrl }));
       }
     } catch (e: any) {
@@ -1745,7 +1745,7 @@ export default function App() {
                         className="input flex-1 min-w-0 text-xs" />
                       <button disabled={!playlistPasteInput.trim()} onClick={async () => {
                         const url = playlistPasteInput.trim();
-                        await supabase.from("weeks").update({ playlist_url: url }).eq("id", week!.id);
+                        await fetch("/api/save-playlist-url", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ weekId: week!.id, playlistUrl: url }) });
                         setWeek((prev: any) => ({ ...prev, playlist_url: url }));
                         setPlaylistPasteInput("");
                       }} className="btn-primary px-4 text-xs flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -1799,25 +1799,36 @@ export default function App() {
                     {/* Song card */}
                     {song.spotify_url && (
                       <div className="px-3">
-                        <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border border-zinc-800 hover:border-zinc-600 transition-colors group">
+                        <div className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border border-zinc-800">
                           {song.album_art_url && (
                             <img src={song.album_art_url} alt="" className="w-12 h-12 rounded-lg flex-shrink-0 object-cover" />
                           )}
                           <div className="flex-1 min-w-0">
                             {song.track_name ? (
                               <>
-                                <p className="text-sm font-semibold text-zinc-200 truncate group-hover:text-white">{song.track_name}</p>
+                                <p className="text-sm font-semibold text-zinc-200 truncate">{song.track_name}</p>
                                 <p className="text-xs text-zinc-500 truncate">{song.artist_name}</p>
                               </>
                             ) : (
-                              <p className="text-xs text-zinc-500">{isAppleMusicUrl(song.spotify_url) ? "Listen on Apple Music" : "Listen on Spotify"}</p>
+                              <p className="text-xs text-zinc-500">Unknown track</p>
                             )}
                           </div>
-                          <span className="text-[10px] text-zinc-600 group-hover:text-zinc-400 flex-shrink-0">
-                            {isAppleMusicUrl(song.spotify_url) ? "Apple Music ↗" : "Spotify ↗"}
-                          </span>
-                        </a>
+                          <div className="flex flex-col gap-1 flex-shrink-0 items-end">
+                            {isAppleMusicUrl(song.spotify_url) && (
+                              <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
+                                className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                Apple Music ↗
+                              </a>
+                            )}
+                            {(song.resolved_spotify_id || !isAppleMusicUrl(song.spotify_url)) && (
+                              <a href={song.resolved_spotify_id ? `https://open.spotify.com/track/${song.resolved_spotify_id}` : song.spotify_url}
+                                target="_blank" rel="noopener noreferrer"
+                                className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                Spotify ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
 
