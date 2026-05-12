@@ -1000,7 +1000,8 @@ export default function App() {
       const uris = (freshSongs || [])
         .map((s: any) => s.resolved_spotify_id || getTrackId(s.spotify_url ?? ""))
         .filter(Boolean)
-        .map((id: string) => `spotify:track:${id}`);
+        .map((id: string) => `spotify:track:${id}`)
+        .sort(() => Math.random() - 0.5);
       if (!uris.length) { toast("No Spotify tracks to add", "error"); return; }
 
       const playlistName = `League of Music: ${week.prompt}`.slice(0, 100);
@@ -1814,7 +1815,7 @@ export default function App() {
                             )}
                           </div>
                           <div className="flex flex-col gap-1 flex-shrink-0 items-end">
-                            {isAppleMusicUrl(song.spotify_url) && (
+                            {identitiesRevealed && isAppleMusicUrl(song.spotify_url) && (
                               <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
                                 className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors whitespace-nowrap">
                                 Apple Music ↗
@@ -1824,7 +1825,7 @@ export default function App() {
                               <a href={song.resolved_spotify_id ? `https://open.spotify.com/track/${song.resolved_spotify_id}` : song.spotify_url}
                                 target="_blank" rel="noopener noreferrer"
                                 className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
-                                Spotify ↗
+                                {identitiesRevealed && isAppleMusicUrl(song.spotify_url) ? "Spotify ↗" : "Listen ↗"}
                               </a>
                             )}
                           </div>

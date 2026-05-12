@@ -135,6 +135,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid Spotify or Apple Music URL" }, { status: 400 });
   }
 
+  // Strip Spotify ?si= tracking param (identifies the sharer's account) but preserve Apple Music ?i= track param
+  const cleanUrl = (() => { try { const u = new URL(spotifyUrl.trim()); u.searchParams.delete("si"); return u.toString(); } catch { return spotifyUrl.trim(); } })();
+
   // Verify week is active and accepting submissions
   const { data: week } = await admin
     .from("weeks")
@@ -156,12 +159,12 @@ export async function POST(req: Request) {
 
   if (existing) return NextResponse.json({ error: "Already submitted" }, { status: 400 });
 
-  const isApple = isAppleMusicUrl(spotifyUrl.trim());
+  const isApple = isAppleMusicUrl(cleanUrl);
   const resolvedSpotifyId = isApple
-    ? await resolveAppleMusicToSpotify(spotifyUrl.trim()).catch(() => null)
+    ? await resolveAppleMusicToSpotify(cleanUrl).catch(() => null)
     : null;
 
-  const finalTrackId = resolvedSpotifyId ?? (!isApple ? getSpotifyTrackId(spotifyUrl.trim()) : null);
+  const finalTrackId = resolvedSpotifyId ?? (!isApple ? getSpotifyTrackId(cleanUrl) : null);
   let meta: { track_name: string; artist_name: string; album_art_url: string } | null = null;
   if (finalTrackId) {
     const token = await getSpotifyClientToken().catch(() => null);
@@ -171,7 +174,7 @@ export async function POST(req: Request) {
   const { error } = await admin.from("song_submissions").insert({
     week_id: weekId,
     user_id: user.id,
-    spotify_url: spotifyUrl.trim(),
+    spotify_url: cleanUrl,
     ...(resolvedSpotifyId ? { resolved_spotify_id: resolvedSpotifyId } : {}),
     ...(meta ?? {}),
   });
