@@ -58,7 +58,7 @@ CREATE TABLE league_requests (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name           text,
   requested_by   uuid REFERENCES profiles(id) ON DELETE CASCADE,
-  approval_token text,
+  approval_token text DEFAULT gen_random_uuid()::text,
   status         text DEFAULT 'pending',
   created_at     timestamptz DEFAULT now()
 );
@@ -89,6 +89,7 @@ CREATE TABLE weeks (
   all_submitted_at   timestamptz,
   vote_deadline      timestamptz,
   playlist_url       text,
+  host_note          text,
   sms_2_sent         boolean DEFAULT false,
   sms_4_sent         boolean DEFAULT false,
   sms_5_sent         boolean DEFAULT false,
@@ -210,6 +211,23 @@ BEGIN
   WHERE user_id = p_user_id AND league_id = p_league_id;
 END;
 $$;
+
+-- ── Disable RLS (dev only — no sensitive data) ───────────────────────────────
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE leagues DISABLE ROW LEVEL SECURITY;
+ALTER TABLE league_members DISABLE ROW LEVEL SECURITY;
+ALTER TABLE league_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE invite_tokens DISABLE ROW LEVEL SECURITY;
+ALTER TABLE weeks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE song_submissions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE song_votes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE vote_locks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE song_reactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE song_comments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE comment_likes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE comment_laughs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE song_guesses DISABLE ROW LEVEL SECURITY;
+ALTER TABLE round_ready DISABLE ROW LEVEL SECURITY;
 
 -- ── Realtime ──────────────────────────────────────────────────────────────────
 -- Enable realtime for all tables the app subscribes to

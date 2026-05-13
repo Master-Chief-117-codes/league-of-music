@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { weekId, prompt } = await req.json();
+  const { weekId, prompt, hostNote } = await req.json();
   if (!weekId || !prompt?.trim()) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   const { data: week } = await admin
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     .update({
       status: "active",
       prompt: prompt.trim(),
+      ...(hostNote ? { host_note: hostNote } : {}),
       deadline,
       prompt_submitted_at: now.toISOString(),
     })

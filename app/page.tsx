@@ -178,6 +178,7 @@ export default function App() {
   const [countdown, setCountdown] = useState("");
   const [voteCountdown, setVoteCountdown] = useState("");
   const [promptInput, setPromptInput] = useState("");
+  const [hostNoteInput, setHostNoteInput] = useState("");
 
   /* ── Submissions ── */
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -916,7 +917,7 @@ export default function App() {
     const res = await fetch("/api/submit-prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ weekId: week.id, prompt: text }),
+      body: JSON.stringify({ weekId: week.id, prompt: text, hostNote: hostNoteInput.trim() || null }),
     });
     const body = await res.json();
     if (!res.ok) { toast(body.error || "Failed to submit prompt", "error"); return; }
@@ -1497,7 +1498,12 @@ export default function App() {
                     {isPromptAuthor ? "It's your turn! Submit this week's prompt below." : `Waiting for ${promptAuthorName} to submit this week's prompt…`}
                   </p>
                 ) : (
-                  <p className="text-base font-semibold leading-snug">{week.prompt}</p>
+                  <>
+                    <p className="text-base font-semibold leading-snug">{week.prompt}</p>
+                    {identitiesRevealed && week.host_note && (
+                      <p className="text-sm text-amber-300/80 italic mt-1">💬 {week.host_note}</p>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1586,11 +1592,14 @@ export default function App() {
                   <input value={promptInput} onChange={(e) => setPromptInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitPrompt()} placeholder="e.g. Songs that hit different at 3am…" className="input flex-1 min-w-0" />
                   <button onClick={submitPrompt} disabled={!promptInput.trim()} className="btn-primary px-5 flex-shrink-0">Submit</button>
                 </div>
+                {isHost && (
+                  <textarea value={hostNoteInput} onChange={(e) => setHostNoteInput(e.target.value)} placeholder="Say something extra — revealed to everyone after voting 🤫" rows={2} className="input w-full resize-none text-sm" />
+                )}
               </div>
             )}
 
-            {/* How-to-play banner */}
-            {week && !isPendingPrompt && !identitiesRevealed && (
+            {/* How-to-play banner — submission phase only */}
+            {week && !isPendingPrompt && !submissionsLocked && !identitiesRevealed && (
               <div className="rounded-2xl overflow-hidden border border-zinc-800/60 bg-gradient-to-br from-zinc-950 to-black">
                 <div className="px-4 py-3 border-b border-zinc-800/40 flex items-center gap-2">
                   <span className="text-sm">🎵</span>
@@ -1600,8 +1609,8 @@ export default function App() {
                   {[
                     { n: "1", title: "Submit a song!", sub: null },
                     { n: "2", title: "All songs revealed", sub: "Songs stay hidden until everyone has submitted." },
-                    { n: "3", title: "⚡ React to every song + leave at least 1 comment", sub: "You must react to each song and comment at least once — then voting unlocks." },
-                    { n: "4", title: "Vote & guess", sub: "Rank your top 3 (or top 4 in groups of 6+). Vote for what fits the prompt, or just your favorite. Guess who submitted each song before the reveal!" },
+                    { n: "3", title: "⚡ React + comment to unlock voting", sub: `React to every song and comment on at least half — then voting unlocks.` },
+                    { n: "4", title: "Vote & guess", sub: "Rank your top 3 (or top 4 in groups of 6+). Guess who submitted each song before the reveal!" },
                     { n: "5", title: "Scores & reveal", sub: "Identities revealed and points tallied. Non-voters lose 1 pt." },
                   ].map(({ n, title, sub }) => (
                     <div key={n} className="flex items-start gap-3">
@@ -1618,6 +1627,33 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* Voting phase instructions — big and emphatic */}
+            {week && submissionsLocked && !identitiesRevealed && (() => {
+              const totalSongs = submissions.length;
+              const reqComments = Math.ceil(totalSongs / 2);
+              return (
+                <div className="rounded-2xl border border-zinc-700/60 bg-zinc-900/60 px-5 py-5 space-y-3">
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">To unlock voting</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔥</span>
+                      <p className="text-base font-bold text-white leading-tight">Emoji react to <span className="text-green-400">every song</span></p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">💬</span>
+                      <p className="text-base font-bold text-white leading-tight">Comment on at least <span className="text-green-400">{reqComments} song{reqComments === 1 ? "" : "s"}</span></p>
+                    </div>
+                  </div>
+                  <div className="border-t border-zinc-800 pt-3 space-y-1.5">
+                    <p className="text-sm font-semibold text-zinc-300">Then you can:</p>
+                    <p className="text-sm text-zinc-400">🕵️ <span className="font-semibold text-white">GUESS</span> who submitted each song</p>
+                    <p className="text-sm text-zinc-400">🏆 <span className="font-semibold text-white">RANK</span> your top choices</p>
+                    <p className="text-sm text-zinc-400">🔒 Hit <span className="font-semibold text-white">LOCK IN</span> at the top when done</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Song submission */}
             {week && !isPendingPrompt && !submissionsLocked && (
@@ -1782,7 +1818,8 @@ export default function App() {
               {submissionsLocked && (() => {
                 const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
                 const allReacted = otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id));
-                const canVote = allReacted && myTotalComments >= 1;
+                const requiredComments = Math.ceil(sorted.length / 2);
+                const canVote = allReacted && myTotalComments >= requiredComments;
                 return sorted.map((song, index) => {
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
@@ -1901,7 +1938,7 @@ export default function App() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-zinc-600 italic">{!allReacted ? "react to all songs to vote" : "leave at least 1 comment to vote"}</span>
+                          <span className="text-xs text-zinc-600 italic">{!allReacted ? "react to all songs to vote" : `comment on ${requiredComments - myTotalComments} more song${requiredComments - myTotalComments === 1 ? "" : "s"} to vote`}</span>
                         )
                       ) : (
                         myRanks[song.id]
