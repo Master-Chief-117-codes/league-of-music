@@ -283,7 +283,18 @@ export default function App() {
 
   /* ── Auth ── */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    // Exchange Supabase OAuth code (distinct from Spotify PKCE codes which use a league_spotify_ state prefix)
+    if (code && (!state || !state.startsWith("league_spotify_"))) {
+      supabase.auth.exchangeCodeForSession(code).then(({ data }) => {
+        if (data.session) setSession(data.session);
+        window.history.replaceState({}, "", window.location.pathname);
+      });
+    } else {
+      supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    }
     const { data: l } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => l?.subscription?.unsubscribe();
   }, []);
@@ -996,8 +1007,19 @@ export default function App() {
     }
 
     try {
-      const { data: freshSongs } = await supabase.from("song_submissions").select("spotify_url, resolved_spotify_id").eq("week_id", week.id);
-      const uris = (freshSongs || [])
+      const { data: freshSongs } = await supabase.from("song_submissions").select("id, spotify_url, resolved_spotify_id").eq("week_id", week.id);
+      // Resolve any Apple Music submissions that weren't resolved at submission time
+      const resolvedSongs = await Promise.all((freshSongs || []).map(async (s: any) => {
+        if (s.resolved_spotify_id || !isAppleMusicUrl(s.spotify_url ?? "")) return s;
+        const res = await fetch("/api/resolve-apple-music", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ url: s.spotify_url, submissionId: s.id }),
+        }).catch(() => null);
+        const data = res?.ok ? await res.json().catch(() => null) : null;
+        return { ...s, resolved_spotify_id: data?.spotifyId ?? null };
+      }));
+      const uris = resolvedSongs
         .map((s: any) => s.resolved_spotify_id || getTrackId(s.spotify_url ?? ""))
         .filter(Boolean)
         .map((id: string) => `spotify:track:${id}`)
@@ -1815,19 +1837,34 @@ export default function App() {
                             )}
                           </div>
                           <div className="flex flex-col gap-1 flex-shrink-0 items-end">
-                            {identitiesRevealed && isAppleMusicUrl(song.spotify_url) && (
-                              <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors whitespace-nowrap">
-                                Apple Music ↗
-                              </a>
-                            )}
-                            {(song.resolved_spotify_id || !isAppleMusicUrl(song.spotify_url)) && (
-                              <a href={song.resolved_spotify_id ? `https://open.spotify.com/track/${song.resolved_spotify_id}` : song.spotify_url}
-                                target="_blank" rel="noopener noreferrer"
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
-                                {identitiesRevealed && isAppleMusicUrl(song.spotify_url) ? "Spotify ↗" : "Listen ↗"}
-                              </a>
-                            )}
+                            {(() => {
+                              const isApple = isAppleMusicUrl(song.spotify_url);
+                              const spotifyId = song.resolved_spotify_id || (!isApple ? getTrackId(song.spotify_url) : null);
+                              if (identitiesRevealed) {
+                                return (<>
+                                  {isApple && (
+                                    <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
+                                      className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                      Apple Music ↗
+                                    </a>
+                                  )}
+                                  {spotifyId && (
+                                    <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
+                                      className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                      Spotify ↗
+                                    </a>
+                                  )}
+                                </>);
+                              }
+                              const listenHref = isApple ? song.spotify_url : (spotifyId ? `https://song.link/s/${spotifyId}` : null);
+                              if (!listenHref) return null;
+                              return (
+                                <a href={listenHref} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                  Listen ↗
+                                </a>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

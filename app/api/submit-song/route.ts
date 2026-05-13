@@ -102,6 +102,12 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
     return null;
   }
 
+  const titleWords = new Set(title.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter((w) => w.length > 2));
+  const titleMatches = (resultTitle: string) => {
+    const resultWords = new Set(resultTitle.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter((w) => w.length > 2));
+    return [...titleWords].some((w) => resultWords.has(w));
+  };
+
   // Try strict query first, then fall back to title-only
   const queries = artist
     ? [`track:${title} artist:${artist}`, title]
@@ -109,14 +115,14 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
 
   for (const q of queries) {
     const searchRes = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`,
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=3`,
       { headers: { Authorization: `Bearer ${access_token}` } }
     ).catch(() => null);
     if (!searchRes?.ok) continue;
     const { tracks } = await searchRes.json();
-    const found = tracks?.items?.[0]?.id ?? null;
-    console.log("[Apple→Spotify] Search q:", q, "→", found ?? "no match");
-    if (found) return found;
+    const match = (tracks?.items ?? []).find((t: any) => titleMatches(t.name));
+    console.log("[Apple→Spotify] Search q:", q, "→", match?.id ?? "no match");
+    if (match) return match.id;
   }
   return null;
 }
