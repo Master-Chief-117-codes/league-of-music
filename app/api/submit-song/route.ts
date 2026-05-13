@@ -173,8 +173,10 @@ export async function POST(req: Request) {
   const finalTrackId = resolvedSpotifyId ?? (!isApple ? getSpotifyTrackId(cleanUrl) : null);
   let meta: { track_name: string; artist_name: string; album_art_url: string } | null = null;
   if (finalTrackId) {
-    const token = await getSpotifyClientToken().catch(() => null);
-    if (token) meta = await fetchTrackMeta(finalTrackId, token).catch(() => null);
+    for (let attempt = 0; attempt < 2 && !meta; attempt++) {
+      const token = await getSpotifyClientToken().catch(() => null);
+      if (token) meta = await fetchTrackMeta(finalTrackId, token).catch(() => null);
+    }
   }
 
   const { error } = await admin.from("song_submissions").insert({
