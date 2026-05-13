@@ -1856,7 +1856,7 @@ export default function App() {
                                   )}
                                 </>);
                               }
-                              const listenHref = isApple ? song.spotify_url : (spotifyId ? `https://song.link/s/${spotifyId}` : null);
+                              const listenHref = song.spotify_url ? `https://song.link/?url=${encodeURIComponent(song.spotify_url)}` : null;
                               if (!listenHref) return null;
                               return (
                                 <a href={listenHref} target="_blank" rel="noopener noreferrer"
