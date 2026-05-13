@@ -209,6 +209,7 @@ export default function App() {
 
   /* ── Ranked voting ── */
   const [myRanks, setMyRanks] = useState<Record<string, number>>({});      // submissionId -> rank (1/2/3)
+  const [promptAuthorTopPick, setPromptAuthorTopPick] = useState<string | null>(null);
   const [voteScores, setVoteScores] = useState<Record<string, number>>({});  // submissionId -> weighted score
   const isVotingRef = useRef(false);
 
@@ -490,6 +491,9 @@ export default function App() {
     });
     setVoteScores(scores);
     if (!isVotingRef.current) setMyRanks(myRanksMap);
+    const promptAuthorId = week?.prompt_author_id;
+    const topPick = allVotes?.find((v: any) => v.voter_id === promptAuthorId && v.rank === 1)?.submission_id ?? null;
+    setPromptAuthorTopPick(topPick);
 
     const subIds = list.map((s: any) => s.id as string);
     if (!subIds.length) return;
@@ -1842,6 +1846,9 @@ export default function App() {
                         {identitiesRevealed && score > 0 && <span className="text-xs font-bold tabular-nums text-zinc-600">#{densePlace(song.id)}</span>}
                         {isWinner && (
                           <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
+                        )}
+                        {identitiesRevealed && promptAuthorTopPick === song.id && !isOwnSong && (
+                          <span className="text-[11px] font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">⭐ {profilesMap[week?.prompt_author_id]?.name ?? "Prompt setter"}&apos;s #1</span>
                         )}
                       </div>
                       {identitiesRevealed && (
