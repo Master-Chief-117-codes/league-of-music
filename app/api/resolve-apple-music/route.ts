@@ -37,13 +37,22 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
       artist = record?.byArtist?.name ?? record?.byArtist?.[0]?.name ?? "";
     } catch { /* ignore */ }
   }
-  if (!title) title = html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] ?? "";
+  if (!title) {
+    const ogTitle = html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] ?? "";
+    const ogMatch = ogTitle.match(/^(.+?)\s+by\s+(.+?)\s+on\s+Apple\s+Music$/i);
+    if (ogMatch) {
+      title = title || ogMatch[1].trim();
+      artist = artist || ogMatch[2].trim();
+    } else {
+      title = title || ogTitle;
+    }
+  }
   if (!artist) {
     const pageTitle = html.match(/<title>([^<]+)<\/title>/)?.[1] ?? "";
     const parts = pageTitle.split("·").map((s: string) => s.trim());
     if (parts.length >= 2) { title = title || parts[0]; artist = parts[1]; }
   }
-  title = title.replace(/\s*-\s*(Single|EP|Album)$/i, "").trim();
+  title = title.replace(/\s+on\s+Apple\s+Music$/i, "").replace(/\s*-\s*(Single|EP|Album)$/i, "").trim();
   if (!title) return null;
 
   const access_token = await getSpotifyClientToken();

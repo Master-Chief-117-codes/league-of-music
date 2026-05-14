@@ -77,8 +77,16 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
 
   // Fall back to og tags
   if (!title) {
-    title = html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] ?? "";
-    console.log("[Apple→Spotify] og:title fallback:", title);
+    const ogTitle = html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] ?? "";
+    // og:title is often "Song by Artist on Apple Music"
+    const ogMatch = ogTitle.match(/^(.+?)\s+by\s+(.+?)\s+on\s+Apple\s+Music$/i);
+    if (ogMatch) {
+      title = title || ogMatch[1].trim();
+      artist = artist || ogMatch[2].trim();
+    } else {
+      title = title || ogTitle;
+    }
+    console.log("[Apple→Spotify] og:title fallback:", { title, artist, ogTitle });
   }
   if (!artist) {
     // Page <title> is often "Song · Artist · Album · Year · Genre"
@@ -88,8 +96,8 @@ async function resolveAppleMusicToSpotify(appleMusicUrl: string): Promise<string
     console.log("[Apple→Spotify] title-tag fallback:", { title, artist, pageTitle });
   }
 
-  // Strip " - Single" / " - EP" suffixes that confuse Spotify search
-  title = title.replace(/\s*-\s*(Single|EP|Album)$/i, "").trim();
+  // Strip " - Single" / " - EP" / " on Apple Music" suffixes that confuse Spotify search
+  title = title.replace(/\s+on\s+Apple\s+Music$/i, "").replace(/\s*-\s*(Single|EP|Album)$/i, "").trim();
 
   if (!title) {
     console.log("[Apple→Spotify] Could not extract title — giving up");
