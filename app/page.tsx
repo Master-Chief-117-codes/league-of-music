@@ -380,7 +380,7 @@ export default function App() {
   useEffect(() => {
     if (!session || needsProfile) return;
     Promise.all([
-      supabase.from("league_members").select("league_id, leagues(id, name, created_by)").eq("user_id", session.user.id),
+      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements)").eq("user_id", session.user.id),
       supabase.from("league_requests").select("id, name, status, created_at").eq("requested_by", session.user.id).eq("status", "pending"),
     ]).then(([{ data: memberData }, { data: reqData }]) => {
       setMyLeagues((memberData || []).map((m: any) => m.leagues).filter(Boolean));
@@ -1129,6 +1129,19 @@ export default function App() {
     toast("League renamed!", "success");
   };
 
+  const saveVotingReqs = async (patch: Record<string, unknown>) => {
+    if (!selectedLeagueId || !session) return;
+    const current = selectedLeague?.voting_requirements ?? {};
+    const updated = { ...current, ...patch };
+    const res = await fetch("/api/update-league-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ leagueId: selectedLeagueId, votingRequirements: updated }),
+    });
+    if (!res.ok) { toast("Failed to save settings", "error"); return; }
+    setMyLeagues((prev: any[]) => prev.map((l) => l.id === selectedLeagueId ? { ...l, voting_requirements: updated } : l));
+  };
+
   const transferHost = async (newHostId: string) => {
     if (!selectedLeagueId || !session) return;
     const res = await fetch("/api/transfer-host", {
@@ -1634,20 +1647,29 @@ export default function App() {
 
             {/* Voting phase instructions — big and emphatic */}
             {week && submissionsLocked && !identitiesRevealed && (() => {
-              const totalSongs = submissions.length;
-              const reqComments = Math.ceil(totalSongs / 2);
+              const vr = selectedLeague?.voting_requirements ?? {};
+              const reqReactions = vr.require_reactions !== false;
+              const reqComments = vr.min_comments !== undefined && vr.min_comments !== null ? vr.min_comments : Math.ceil(submissions.length / 2);
+              const hasRequirements = reqReactions || reqComments > 0;
               return (
                 <div className="rounded-2xl border border-zinc-700/60 bg-zinc-900/60 px-5 py-5 space-y-3">
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">To unlock voting</p>
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{hasRequirements ? "To unlock voting" : "How to vote"}</p>
                   <div className="space-y-2.5">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🔥</span>
-                      <p className="text-base font-bold text-white leading-tight">Emoji react to <span className="text-green-400">every song</span></p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">💬</span>
-                      <p className="text-base font-bold text-white leading-tight">Comment on at least <span className="text-green-400">{reqComments} song{reqComments === 1 ? "" : "s"}</span></p>
-                    </div>
+                    {reqReactions && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🔥</span>
+                        <p className="text-base font-bold text-white leading-tight">Emoji react to <span className="text-green-400">every song</span></p>
+                      </div>
+                    )}
+                    {reqComments > 0 && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">💬</span>
+                        <p className="text-base font-bold text-white leading-tight">Comment on at least <span className="text-green-400">{reqComments} song{reqComments === 1 ? "" : "s"}</span></p>
+                      </div>
+                    )}
+                    {!hasRequirements && (
+                      <p className="text-base font-bold text-white leading-tight">No requirements — vote freely!</p>
+                    )}
                   </div>
                   <div className="border-t border-zinc-800 pt-3 space-y-1.5">
                     <p className="text-sm font-semibold text-zinc-300">Then you can:</p>
@@ -1820,10 +1842,12 @@ export default function App() {
               )}
 
               {submissionsLocked && (() => {
+                const vr = selectedLeague?.voting_requirements ?? {};
+                const requireReactions = vr.require_reactions !== false;
+                const minComments = vr.min_comments !== undefined && vr.min_comments !== null ? vr.min_comments : Math.ceil(sorted.length / 2);
                 const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
-                const allReacted = otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id));
-                const requiredComments = Math.ceil(sorted.length / 2);
-                const canVote = allReacted && myTotalComments >= requiredComments;
+                const allReacted = !requireReactions || (otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id)));
+                const canVote = allReacted && myTotalComments >= minComments;
                 return sorted.map((song, index) => {
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
@@ -1945,7 +1969,7 @@ export default function App() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-zinc-600 italic">{!allReacted ? "react to all songs to vote" : `comment on ${requiredComments - myTotalComments} more song${requiredComments - myTotalComments === 1 ? "" : "s"} to vote`}</span>
+                          <span className="text-xs text-zinc-600 italic">{requireReactions && !allReacted ? "react to all songs to vote" : `comment on ${minComments - myTotalComments} more song${minComments - myTotalComments === 1 ? "" : "s"} to vote`}</span>
                         )
                       ) : (
                         myRanks[song.id]
@@ -2144,7 +2168,7 @@ export default function App() {
 
             {/* Host controls */}
             {isHost && (
-              <div className="pt-8 border-t border-zinc-900 mt-4 space-y-5">
+              <div className="pt-12 border-t border-zinc-800 mt-10 space-y-6">
                 <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Host Controls</p>
 
                 {transferring ? (
@@ -2292,6 +2316,42 @@ export default function App() {
                         Transfer Ownership
                       </button>
                     </div>
+
+                    {/* Voting Requirements */}
+                    {(() => {
+                      const vr = selectedLeague?.voting_requirements ?? {};
+                      const reqReactions = vr.require_reactions !== false;
+                      const minComments = vr.min_comments !== undefined && vr.min_comments !== null ? vr.min_comments : null;
+                      return (
+                        <div className="space-y-3">
+                          <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Voting Requirements</p>
+                          <div className="space-y-2">
+                            <p className="text-xs text-zinc-500">Emoji reactions</p>
+                            <div className="flex gap-2">
+                              <button onClick={() => saveVotingReqs({ require_reactions: true })}
+                                className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${reqReactions ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                Required
+                              </button>
+                              <button onClick={() => saveVotingReqs({ require_reactions: false })}
+                                className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${!reqReactions ? "border-amber-500/40 text-amber-400 bg-amber-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                Not required
+                              </button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-xs text-zinc-500">Comment minimum</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {([{ label: "None", value: 0 }, { label: "1", value: 1 }, { label: "2", value: 2 }, { label: "3", value: 3 }, { label: "Half of songs", value: null }] as { label: string; value: number | null }[]).map(({ label, value }) => (
+                                <button key={label} onClick={() => saveVotingReqs({ min_comments: value })}
+                                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${minComments === value ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>
