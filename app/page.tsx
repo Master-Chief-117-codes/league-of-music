@@ -1456,6 +1456,13 @@ export default function App() {
   const hasSpotifyConnection = !!(spotifyToken || spotifyRefreshToken);
   const isLockedIn = voteLocks.has(session?.user?.id ?? "");
 
+  const vr = selectedLeague?.voting_requirements ?? {};
+  const requireReactions = vr.require_reactions !== false;
+  const minComments = vr.min_comments !== undefined && vr.min_comments !== null ? vr.min_comments : Math.ceil(sorted.length / 2);
+  const otherSongs = sorted.filter((s: any) => s.user_id !== (session?.user?.id ?? ""));
+  const allReacted = !requireReactions || (otherSongs.length > 0 && otherSongs.every((s: any) => hasReactedTo(s.id)));
+  const canVote = allReacted && myTotalComments >= minComments;
+
   return (
     <div className="min-h-screen bg-black">
       <ToastStack />
@@ -1771,9 +1778,7 @@ export default function App() {
                       <span className="text-sm font-semibold text-green-400">Votes locked in!</span>
                     </div>
                   ) : (
-                    Object.keys(myRanks).length > 0 &&
-                    sorted.filter((s) => s.user_id !== session.user.id).every((s) => hasReactedTo(s.id)) &&
-                    myTotalComments >= 1 && (
+                    canVote && Object.keys(myRanks).length > 0 && (
                       <button onClick={lockInVotes}
                         className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
                         Lock in votes
@@ -1842,12 +1847,6 @@ export default function App() {
               )}
 
               {submissionsLocked && (() => {
-                const vr = selectedLeague?.voting_requirements ?? {};
-                const requireReactions = vr.require_reactions !== false;
-                const minComments = vr.min_comments !== undefined && vr.min_comments !== null ? vr.min_comments : Math.ceil(sorted.length / 2);
-                const otherSongs = sorted.filter((s) => s.user_id !== session.user.id);
-                const allReacted = !requireReactions || (otherSongs.length > 0 && otherSongs.every((s) => hasReactedTo(s.id)));
-                const canVote = allReacted && myTotalComments >= minComments;
                 return sorted.map((song, index) => {
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
