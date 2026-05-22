@@ -1873,7 +1873,7 @@ export default function App() {
                 const score = voteScores[song.id] || 0;
                 // Only show leader styling after reveal
                 const isWinner = identitiesRevealed && score === maxScore && maxScore > 0;
-                const isOwnSong = song.user_id === session.user.id;
+                const isOwnSong = false; // temporarily disabled for testing
                 const submitterName = isOwnSong ? "You" : profilesMap[song.user_id]?.name ?? "Player";
                 const songRx = reactions[song.id] || {};
                 const songComments = comments[song.id] || [];
