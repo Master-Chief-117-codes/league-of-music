@@ -211,7 +211,7 @@ export default function App() {
   const [myRanks, setMyRanks] = useState<Record<string, number>>({});      // submissionId -> rank (1/2/3)
   const [promptAuthorTopPick, setPromptAuthorTopPick] = useState<string | null>(null);
   const [voteScores, setVoteScores] = useState<Record<string, number>>({});  // submissionId -> weighted score
-  const isVotingRef = useRef(false);
+  const hasUnsavedVotes = useRef(false);
 
   /* ── Reactions ── */
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
@@ -490,7 +490,7 @@ export default function App() {
       }
     });
     setVoteScores(scores);
-    if (!isVotingRef.current) setMyRanks(myRanksMap);
+    if (!hasUnsavedVotes.current) setMyRanks(myRanksMap);
     const promptAuthorId = week?.prompt_author_id;
     const topPick = allVotes?.find((v: any) => v.voter_id === promptAuthorId && v.rank === 1)?.submission_id ?? null;
     setPromptAuthorTopPick(topPick);
@@ -726,48 +726,17 @@ export default function App() {
   };
 
   // Assigns a rank (1/2/3/4) to a submission, handling conflicts
-  const setVoteRank = async (submissionId: string, newRank: 1 | 2 | 3 | 4) => {
+  const setVoteRank = (submissionId: string, newRank: 1 | 2 | 3 | 4) => {
     if (!week || !session || identitiesRevealed) return;
-
-    const prevRankOfSong = myRanks[submissionId] as 1 | 2 | 3 | 4 | undefined;
-    const prevSongAtRank = Object.entries(myRanks).find(([id, r]) => r === newRank && id !== submissionId)?.[0];
-    const isToggling = prevRankOfSong === newRank;
-
-    // Optimistic update
+    hasUnsavedVotes.current = true;
     setMyRanks((prev) => {
       const next = { ...prev };
+      const isToggling = prev[submissionId] === newRank;
+      const prevSongAtRank = Object.entries(prev).find(([id, r]) => r === newRank && id !== submissionId)?.[0];
       if (isToggling) { delete next[submissionId]; }
       else { if (prevSongAtRank) delete next[prevSongAtRank]; next[submissionId] = newRank; }
       return next;
     });
-
-    isVotingRef.current = true;
-    try {
-      // Delete the displaced song's vote first (if another song had this rank)
-      if (!isToggling && prevSongAtRank) {
-        await supabase.from("song_votes").delete()
-          .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", prevSongAtRank);
-      }
-
-      if (isToggling) {
-        // Remove the vote entirely
-        await supabase.from("song_votes").delete()
-          .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", submissionId);
-      } else if (prevRankOfSong !== undefined) {
-        // Update rank in place — delete old then insert new so the unique rank constraint is satisfied
-        await supabase.from("song_votes").delete()
-          .eq("week_id", week.id).eq("voter_id", session.user.id).eq("submission_id", submissionId);
-        await supabase.from("song_votes").insert({
-          week_id: week.id, voter_id: session.user.id, submission_id: submissionId, rank: newRank,
-        });
-      } else {
-        await supabase.from("song_votes").insert({
-          week_id: week.id, voter_id: session.user.id, submission_id: submissionId, rank: newRank,
-        });
-      }
-    } finally {
-      isVotingRef.current = false;
-    }
   };
 
   const toggleReaction = async (submissionId: string, emoji: string) => {
@@ -871,12 +840,23 @@ export default function App() {
 
   const lockInVotes = async () => {
     if (!week || !session || !selectedLeagueId) return;
+
+    // Save all votes to DB atomically on lock-in
+    await supabase.from("song_votes").delete().eq("week_id", week.id).eq("voter_id", session.user.id);
+    const votes = Object.entries(myRanks).map(([submission_id, rank]) => ({
+      week_id: week.id, voter_id: session.user.id, submission_id, rank,
+    }));
+    if (votes.length > 0) await supabase.from("song_votes").insert(votes);
+
     const res = await fetch("/api/lock-votes", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
     });
-    if (res.ok) setVoteLocks((prev) => new Set([...prev, session.user.id]));
+    if (res.ok) {
+      hasUnsavedVotes.current = false;
+      setVoteLocks((prev) => new Set([...prev, session.user.id]));
+    }
   };
 
   const toggleReady = async () => {
