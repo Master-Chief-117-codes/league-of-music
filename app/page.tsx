@@ -1846,7 +1846,7 @@ export default function App() {
                 ) : null
               )}
 
-              {identitiesRevealed && submissionsLocked && (() => {
+              {submissionsLocked && (() => {
                 const myPicks = [1, 2, 3, 4]
                   .map((r) => ({ rank: r, song: sorted.find((s) => myRanks[s.id] === r) }))
                   .filter(({ song }) => !!song);
