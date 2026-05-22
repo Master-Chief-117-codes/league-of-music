@@ -1846,6 +1846,28 @@ export default function App() {
                 ) : null
               )}
 
+              {identitiesRevealed && submissionsLocked && (() => {
+                const myPicks = [1, 2, 3, 4]
+                  .map((r) => ({ rank: r, song: sorted.find((s) => myRanks[s.id] === r) }))
+                  .filter(({ song }) => !!song);
+                if (!myPicks.length) return null;
+                return (
+                  <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 px-4 py-3 space-y-2">
+                    <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Your votes</p>
+                    {myPicks.map(({ rank, song }) => (
+                      <div key={rank} className="flex items-center gap-2.5">
+                        <span className="text-xs font-bold text-zinc-600 w-5 tabular-nums">#{rank}</span>
+                        {song!.album_art_url && <img src={song!.album_art_url} alt="" className="w-7 h-7 rounded flex-shrink-0 object-cover" />}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-zinc-300 truncate">{song!.track_name ?? "Unknown track"}</p>
+                          <p className="text-[11px] text-zinc-600 truncate">{song!.artist_name}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {submissionsLocked && (() => {
                 return sorted.map((song, index) => {
                 const score = voteScores[song.id] || 0;
