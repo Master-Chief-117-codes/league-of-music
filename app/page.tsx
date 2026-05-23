@@ -275,6 +275,8 @@ export default function App() {
 
   const userIdRef = useRef("");
   useEffect(() => { if (session?.user?.id) userIdRef.current = session.user.id; }, [session]);
+  const weekRef = useRef<any>(null);
+  useEffect(() => { weekRef.current = week; }, [week]);
 
   /* ── Toast helper ── */
   const toast = useCallback((msg: string, kind: ToastKind = "info") => {
@@ -491,7 +493,7 @@ export default function App() {
     });
     setVoteScores(scores);
     if (!hasUnsavedVotes.current) setMyRanks(myRanksMap);
-    const promptAuthorId = week?.prompt_author_id;
+    const promptAuthorId = weekRef.current?.prompt_author_id;
     const topPick = allVotes?.find((v: any) => v.voter_id === promptAuthorId && v.rank === 1)?.submission_id ?? null;
     setPromptAuthorTopPick(topPick);
 
@@ -841,12 +843,16 @@ export default function App() {
   const lockInVotes = async () => {
     if (!week || !session || !selectedLeagueId) return;
 
-    // Save all votes to DB atomically on lock-in
-    await supabase.from("song_votes").delete().eq("week_id", week.id).eq("voter_id", session.user.id);
     const votes = Object.entries(myRanks).map(([submission_id, rank]) => ({
       week_id: week.id, voter_id: session.user.id, submission_id, rank,
     }));
-    if (votes.length > 0) await supabase.from("song_votes").insert(votes);
+    if (votes.length > 0) {
+      const { data: inserted, error: insertError } = await supabase.from("song_votes").insert(votes).select("id");
+      if (insertError || !inserted?.length) { toast("Failed to save votes — please try again", "error"); return; }
+      // Delete any stale votes from previous attempts, keeping only what we just inserted
+      const insertedIds = inserted.map((r: any) => r.id);
+      await supabase.from("song_votes").delete().eq("week_id", week.id).eq("voter_id", session.user.id).not("id", "in", `(${insertedIds.join(",")})`);
+    }
 
     const res = await fetch("/api/lock-votes", {
       method: "POST",
@@ -1872,7 +1878,7 @@ export default function App() {
                         {isWinner && (
                           <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
                         )}
-                        {identitiesRevealed && promptAuthorTopPick === song.id && !isOwnSong && (
+                        {identitiesRevealed && promptAuthorTopPick === song.id && (
                           <span className="text-[11px] font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">⭐ {profilesMap[week?.prompt_author_id]?.name ?? "Prompt setter"}&apos;s #1</span>
                         )}
                       </div>
