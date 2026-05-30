@@ -843,21 +843,10 @@ export default function App() {
   const lockInVotes = async () => {
     if (!week || !session || !selectedLeagueId) return;
 
-    const votes = Object.entries(myRanks).map(([submission_id, rank]) => ({
-      week_id: week.id, voter_id: session.user.id, submission_id, rank,
-    }));
-    if (votes.length > 0) {
-      const { data: inserted, error: insertError } = await supabase.from("song_votes").insert(votes).select("id");
-      if (insertError || !inserted?.length) { toast("Failed to save votes — please try again", "error"); return; }
-      // Delete any stale votes from previous attempts, keeping only what we just inserted
-      const insertedIds = inserted.map((r: any) => r.id);
-      await supabase.from("song_votes").delete().eq("week_id", week.id).eq("voter_id", session.user.id).not("id", "in", `(${insertedIds.join(",")})`);
-    }
-
     const res = await fetch("/api/lock-votes", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId }),
+      body: JSON.stringify({ weekId: week.id, leagueId: selectedLeagueId, ranks: myRanks }),
     });
     if (res.ok) {
       hasUnsavedVotes.current = false;

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { weekId, leagueId } = await req.json();
+  const { weekId, leagueId, ranks } = await req.json();
   if (!weekId || !leagueId) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   const { data: week } = await admin
@@ -22,6 +22,18 @@ export async function POST(req: Request) {
     .single();
 
   if (!week || week.revealed) return NextResponse.json({ error: "Round already revealed" }, { status: 400 });
+
+  // Save votes atomically using service role (bypasses RLS)
+  if (ranks && typeof ranks === "object") {
+    const votes = Object.entries(ranks).map(([submission_id, rank]) => ({
+      week_id: weekId, voter_id: user.id, submission_id, rank,
+    }));
+    await admin.from("song_votes").delete().eq("week_id", weekId).eq("voter_id", user.id);
+    if (votes.length > 0) {
+      const { error: insertError } = await admin.from("song_votes").insert(votes);
+      if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+  }
 
   // Upsert lock-in (idempotent)
   const { error } = await admin.from("vote_locks").upsert(
