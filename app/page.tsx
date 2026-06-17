@@ -186,6 +186,7 @@ export default function App() {
   const [urlError, setUrlError] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [leaguePastTrackIds, setLeaguePastTrackIds] = useState<Set<string>>(new Set());
 
   /* ── Profiles ── */
   const [profile, setProfile] = useState<any>(null);
@@ -590,6 +591,20 @@ export default function App() {
       setWeek(weekData);
       setSubmissionsLocked(weekData.locked || false);
       setIdentitiesRevealed(weekData.revealed || false);
+
+      // Load past Spotify track IDs for duplicate detection
+      const { data: pastWeeks } = await supabase.from("weeks").select("id").eq("league_id", selectedLeagueId).neq("id", weekData.id);
+      const pastWeekIds = (pastWeeks || []).map((w: any) => w.id);
+      if (pastWeekIds.length > 0) {
+        const { data: pastSubs } = await supabase.from("song_submissions").select("spotify_url, resolved_spotify_id").in("week_id", pastWeekIds);
+        const trackIds = new Set<string>();
+        (pastSubs || []).forEach((s: any) => {
+          const id = s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "");
+          if (id) trackIds.add(id);
+        });
+        setLeaguePastTrackIds(trackIds);
+      }
+
       await loadAllForWeek(weekData.id);
     };
     init();
@@ -708,6 +723,14 @@ export default function App() {
     const trimmed = spotifyUrl.trim();
     if (!isMusicUrl(trimmed)) { setUrlError("Paste a valid Spotify or Apple Music track link."); return; }
     if (submissionsLocked || !week || !session || isSubmitting) return;
+    const noDuplicates = selectedLeague?.voting_requirements?.no_duplicates === true;
+    if (noDuplicates) {
+      const trackId = getSpotifyTrackId(trimmed);
+      if (trackId && leaguePastTrackIds.has(trackId)) {
+        setUrlError("This song has already been submitted in this league.");
+        return;
+      }
+    }
     setIsSubmitting(true);
     setUrlError("");
     const res = await fetch("/api/submit-song", {
@@ -2312,6 +2335,26 @@ export default function App() {
                         Transfer Ownership
                       </button>
                     </div>
+
+                    {/* Duplicate songs */}
+                    {(() => {
+                      const noDuplicates = selectedLeague?.voting_requirements?.no_duplicates === true;
+                      return (
+                        <div className="space-y-2">
+                          <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Duplicate Songs</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => saveVotingReqs({ no_duplicates: true })}
+                              className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${noDuplicates ? "border-red-500/40 text-red-400 bg-red-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                              Block repeats
+                            </button>
+                            <button onClick={() => saveVotingReqs({ no_duplicates: false })}
+                              className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${!noDuplicates ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                              Allow repeats
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Voting Requirements */}
                     {(() => {
