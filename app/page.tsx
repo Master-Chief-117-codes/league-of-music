@@ -1488,9 +1488,7 @@ export default function App() {
           { h: "h-32", label: "#1", color: "from-yellow-400 to-amber-500", border: "border-yellow-400/60", text: "text-yellow-300" },
           { h: "h-16", label: "#3", color: "from-amber-600 to-orange-700", border: "border-amber-600/40", text: "text-amber-500" },
         ];
-        const podiumStyleMap = top3.length >= 2
-          ? [podiumStyles[1], podiumStyles[0], podiumStyles[2]]
-          : [podiumStyles[1]];
+        const podiumStyleMap = top3.length >= 2 ? podiumStyles : [podiumStyles[1]];
 
         return (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-b from-indigo-950 via-violet-950 to-zinc-950">
