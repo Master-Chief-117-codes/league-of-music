@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -279,6 +279,18 @@ export default function App() {
   const weekRef = useRef<any>(null);
   useEffect(() => { weekRef.current = week; }, [week]);
 
+  const confettiPieces = useMemo(() =>
+    Array.from({ length: 80 }).map((_, i) => ({
+      left: `${(i * 1.27) % 100}%`,
+      delay: `${(i * 0.13) % 4}s`,
+      duration: `${3 + (i * 0.11) % 2.5}s`,
+      color: ["#ffd700","#ff6b6b","#4ecdc4","#45b7d1","#f9ca24","#f0932b","#6c5ce7","#a29bfe","#fd79a8","#55efc4"][i % 10],
+      width: `${6 + (i % 4) * 2}px`,
+      height: `${10 + (i % 3) * 5}px`,
+      rotation: `${(i * 47) % 360}deg`,
+      round: i % 4 === 0,
+    })), []);
+
   /* ── Toast helper ── */
   const toast = useCallback((msg: string, kind: ToastKind = "info") => {
     const id = Math.random().toString(36).slice(2);
@@ -383,7 +395,7 @@ export default function App() {
   useEffect(() => {
     if (!session || needsProfile) return;
     Promise.all([
-      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements)").eq("user_id", session.user.id),
+      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements, season_over, current_season)").eq("user_id", session.user.id),
       supabase.from("league_requests").select("id, name, status, created_at").eq("requested_by", session.user.id).eq("status", "pending"),
     ]).then(([{ data: memberData }, { data: reqData }]) => {
       setMyLeagues((memberData || []).map((m: any) => m.leagues).filter(Boolean));
@@ -1465,6 +1477,123 @@ export default function App() {
     <div className="min-h-screen bg-black">
       <ToastStack />
 
+      {/* ── SEASON OVER OVERLAY ── */}
+      {selectedLeague?.season_over && (() => {
+        const seasonLeaderboard = Object.values(profilesMap).sort((a: any, b: any) => (b.points - a.points) || (b.wins - a.wins));
+        const top3 = seasonLeaderboard.slice(0, 3);
+        const rest = seasonLeaderboard.slice(3);
+        const podiumOrder = top3.length >= 2 ? [top3[1], top3[0], top3[2]].filter(Boolean) : top3;
+        const podiumStyles: any[] = [
+          { h: "h-24", label: "#2", color: "from-zinc-400 to-zinc-500", border: "border-zinc-400/40", text: "text-zinc-300" },
+          { h: "h-32", label: "#1", color: "from-yellow-400 to-amber-500", border: "border-yellow-400/60", text: "text-yellow-300" },
+          { h: "h-16", label: "#3", color: "from-amber-600 to-orange-700", border: "border-amber-600/40", text: "text-amber-500" },
+        ];
+        const podiumStyleMap = top3.length >= 2
+          ? [podiumStyles[1], podiumStyles[0], podiumStyles[2]]
+          : [podiumStyles[1]];
+
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-b from-indigo-950 via-violet-950 to-zinc-950">
+            <style>{`
+              @keyframes confetti-fall {
+                0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+                80% { opacity: 1; }
+                100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+              }
+            `}</style>
+
+            {/* Confetti */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+              {confettiPieces.map((p, i) => (
+                <div key={i} style={{
+                  position: "absolute", left: p.left, top: "-20px",
+                  width: p.width, height: p.height,
+                  background: p.color, borderRadius: p.round ? "50%" : "2px",
+                  animation: `confetti-fall ${p.duration} ${p.delay} infinite linear`,
+                  transform: `rotate(${p.rotation})`,
+                }} />
+              ))}
+            </div>
+
+            <div className="max-w-lg mx-auto px-4 py-16 relative">
+
+              {/* Title */}
+              <div className="text-center mb-12 space-y-3">
+                <p className="text-[11px] font-bold tracking-[0.3em] text-indigo-400 uppercase">
+                  Season {selectedLeague?.current_season ?? 1} Complete
+                </p>
+                <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-yellow-300 via-orange-400 to-pink-400 bg-clip-text text-transparent leading-none pb-1">
+                  That&apos;s a Wrap!
+                </h1>
+                <p className="text-zinc-400 text-base">Thanks for playing 🎉</p>
+              </div>
+
+              {/* Podium */}
+              {top3.length > 0 && (
+                <div className="flex items-end justify-center gap-3 mb-10">
+                  {podiumOrder.map((player: any, idx) => {
+                    const style = podiumStyleMap[idx];
+                    const globalRank = seasonLeaderboard.indexOf(player);
+                    return (
+                      <div key={player.id} className="flex flex-col items-center gap-2 flex-1">
+                        <Avatar name={player.name} url={player.avatar_url} size="md" />
+                        {globalRank === 0 && <span className="text-xl">👑</span>}
+                        <p className="text-xs font-bold text-white text-center truncate w-full px-1">{player.name}</p>
+                        <p className="text-[10px] text-zinc-400">{player.points ?? 0} pts · {player.wins ?? 0}W</p>
+                        <div className={`w-full ${style.h} rounded-t-xl bg-gradient-to-t ${style.color} border-t-2 border-x-2 ${style.border} flex items-start justify-center pt-2`}>
+                          <span className={`text-xs font-black ${style.text}`}>{style.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Rest of leaderboard */}
+              {rest.length > 0 && (
+                <div className="space-y-2 mb-10">
+                  {rest.map((player: any, idx) => (
+                    <div key={player.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+                      <span className="text-xs font-bold text-zinc-500 w-5 tabular-nums">#{idx + 4}</span>
+                      <Avatar name={player.name} url={player.avatar_url} size="sm" />
+                      <p className="text-sm font-medium text-zinc-200 flex-1 truncate">{player.name}</p>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold text-zinc-300">{player.points ?? 0} pts</p>
+                        <p className="text-[10px] text-zinc-600">{player.wins ?? 0} wins</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Start new season / back */}
+              <div className="space-y-3 pb-8">
+                {isHost && (
+                  <button onClick={async () => {
+                    if (!confirm("Start a new season? Wins and points will reset to 0.")) return;
+                    const res = await fetch("/api/start-season", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ leagueId: selectedLeagueId }) });
+                    if (res.ok) {
+                      const { season } = await res.json();
+                      setMyLeagues((prev: any[]) => prev.map((l) => l.id === selectedLeagueId ? { ...l, season_over: false, current_season: season } : l));
+                      setProfilesMap((prev) => {
+                        const next = { ...prev };
+                        Object.keys(next).forEach((id) => { next[id] = { ...next[id], wins: 0, points: 0 }; });
+                        return next;
+                      });
+                    }
+                  }} className="w-full py-4 font-bold text-sm rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 text-black hover:from-green-400 hover:to-emerald-400 transition-all active:scale-95 shadow-lg shadow-green-500/20">
+                    🚀 Start Season {(selectedLeague?.current_season ?? 1) + 1}
+                  </button>
+                )}
+                <button onClick={() => setSelectedLeagueId(null)} className="w-full py-3 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                  ← Back to leagues
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Header */}
       <header className="sticky top-0 z-20 bg-black/90 backdrop-blur-xl border-b border-zinc-900">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
@@ -2391,6 +2520,19 @@ export default function App() {
                         </div>
                       );
                     })()}
+                    {/* End Season */}
+                    {identitiesRevealed && !selectedLeague?.season_over && (
+                      <div className="space-y-2 pt-2 border-t border-zinc-800">
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Season</p>
+                        <button onClick={async () => {
+                          if (!confirm("End the season? This will lock the league and show the final standings.")) return;
+                          await fetch("/api/end-season", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ leagueId: selectedLeagueId }) });
+                          setMyLeagues((prev: any[]) => prev.map((l) => l.id === selectedLeagueId ? { ...l, season_over: true } : l));
+                        }} className="w-full py-3 text-xs font-semibold rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-pink-500/30 transition-all active:scale-95">
+                          🏁 End Season
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
