@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   const requesterName = profile?.name ?? "Someone";
   const requesterEmail = profile?.email ?? user.email ?? "unknown";
 
-  await fetch("https://api.resend.com/emails", {
+  const emailRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -65,7 +65,24 @@ export async function POST(req: Request) {
         </div>
       `,
     }),
-  }).catch(() => {});
+  }).catch((err: unknown) => {
+    console.error("[request-league] Resend request threw:", err);
+    return null;
+  });
 
-  return NextResponse.json({ ok: true });
+  // The request row is already persisted, so a failed notification must not fail
+  // the request - but it must not vanish silently either.
+  let emailed = false;
+  if (!emailRes) {
+    // network-level failure, already logged above
+  } else if (emailRes.ok) {
+    emailed = true;
+  } else {
+    const detail = await emailRes.text().catch(() => "<unreadable body>");
+    console.error(
+      `[request-league] Resend rejected the notification (HTTP ${emailRes.status}): ${detail}`
+    );
+  }
+
+  return NextResponse.json({ ok: true, emailed });
 }
