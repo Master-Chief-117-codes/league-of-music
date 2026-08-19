@@ -7,7 +7,7 @@ const admin = createClient(
 
 function page(body: string) {
   return new Response(
-    `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>League of Music</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;background:#000;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{max-width:420px;width:100%;text-align:center}.icon{width:52px;height:52px;border-radius:14px;margin:0 auto 20px;font-size:26px;line-height:52px}h2{font-size:22px;font-weight:700;margin-bottom:8px}p{color:#aaa;font-size:15px;line-height:1.5}a{display:inline-block;margin-top:24px;padding:12px 28px;background:#22c55e;color:#000;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none}</style></head><body><div class="card">${body}</div></body></html>`,
+    `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>League of Music</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;background:#0A0B0A;color:#EDEFEC;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{max-width:420px;width:100%;text-align:center}.icon{width:52px;height:52px;border-radius:14px;margin:0 auto 20px;font-size:26px;line-height:52px}h2{font-size:22px;font-weight:700;margin-bottom:8px}p{color:#A2A99F;font-size:15px;line-height:1.5}a{display:inline-block;margin-top:24px;padding:12px 28px;background:#3DD68C;color:#0A0B0A;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none}</style></head><body><div class="card">${body}</div></body></html>`,
     { headers: { "Content-Type": "text/html" } }
   );
 }
@@ -63,6 +63,6 @@ export async function GET(req: Request) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   return page(
-    `<div class="icon" style="background:#22c55e">🎵</div><h2 style="color:#22c55e">League approved!</h2><p><strong style="color:#fff">${request.name}</strong> is now live.</p><a href="${appUrl}">Open App →</a>`
+    `<div class="icon" style="background:#3DD68C">🎵</div><h2 style="color:#3DD68C">League approved!</h2><p><strong style="color:#EDEFEC">${request.name}</strong> is now live.</p><a href="${appUrl}">Open App →</a>`
   );
 }

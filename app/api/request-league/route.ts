@@ -49,17 +49,17 @@ export async function POST(req: Request) {
       to: ADMIN_EMAIL,
       subject: `League creation request: ${name.trim()}`,
       html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#000;color:#fff;border-radius:16px">
-          <div style="width:40px;height:40px;background:#22c55e;border-radius:10px;margin-bottom:20px;font-size:20px;line-height:40px;text-align:center">🎵</div>
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0A0B0A;color:#EDEFEC;border-radius:16px">
+          <div style="width:40px;height:40px;background:#3DD68C;border-radius:10px;margin-bottom:20px;font-size:20px;line-height:40px;text-align:center">🎵</div>
           <h2 style="margin:0 0 8px;font-size:20px;font-weight:700">New League Request</h2>
-          <p style="margin:0 0 4px;color:#aaa;font-size:15px">
-            <strong style="color:#fff">${requesterName}</strong> (${requesterEmail}) wants to create:
+          <p style="margin:0 0 4px;color:#A2A99F;font-size:15px">
+            <strong style="color:#EDEFEC">${requesterName}</strong> (${requesterEmail}) wants to create:
           </p>
-          <p style="margin:16px 0 24px;font-size:24px;font-weight:700;color:#22c55e">${name.trim()}</p>
-          <a href="${approveUrl}" style="display:inline-block;padding:12px 28px;background:#22c55e;color:#000;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none">
+          <p style="margin:16px 0 24px;font-size:24px;font-weight:700;color:#3DD68C">${name.trim()}</p>
+          <a href="${approveUrl}" style="display:inline-block;padding:12px 28px;background:#3DD68C;color:#0A0B0A;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none">
             Approve League →
           </a>
-          <p style="margin:24px 0 0;color:#555;font-size:12px">
+          <p style="margin:24px 0 0;color:#6E756B;font-size:12px">
             Clicking approve will create the league and email ${requesterEmail}.
           </p>
         </div>

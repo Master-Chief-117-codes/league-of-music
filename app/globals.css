@@ -1,5 +1,45 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------
+   Refined Green.
+
+   The palette is defined once here as Tailwind theme tokens, so the
+   utility classes already in the markup (bg-green-500, text-zinc-400,
+   border-zinc-800/40 and friends) resolve to it - including their
+   opacity variants, which Tailwind derives from the token. Changing a
+   value below re-skins the whole app.
+
+   Neutrals carry a slight green bias so they read as chosen rather
+   than inherited, and the ground is a tinted near-black instead of
+   #000. Contrast against the ground: text 17.0:1, muted 8.2:1,
+   accent 10.5:1 - all clear of the 4.5:1 AA floor.
+
+   red / blue / amber are left at Tailwind defaults on purpose: they
+   carry meaning (error, Apple Music, winner) rather than identity.
+   --------------------------------------------------------------- */
+@theme {
+  /* ground + the ink that sits on the accent */
+  --color-black: #0A0B0A;
+  /* primary text */
+  --color-white: #EDEFEC;
+
+  /* surfaces and hairlines, darkest to lightest */
+  --color-zinc-950: #121412;
+  --color-zinc-900: #171A16;
+  --color-zinc-800: #232722;
+  --color-zinc-700: #2F352E;
+  --color-zinc-600: #3C433A;
+  --color-zinc-500: #6E756B;
+  --color-zinc-400: #A2A99F;
+  --color-zinc-300: #C5CBC2;
+  --color-zinc-200: #DCE0DA;
+
+  /* accent */
+  --color-green-500: #3DD68C;
+  --color-green-400: #5FE0A2;
+  --color-green-300: #8AEBBE;
+}
+
 @theme inline {
   --font-sans: var(--font-geist);
 }
@@ -9,29 +49,29 @@
 }
 
 body {
-  background: #000;
-  color: #fff;
+  background: var(--color-black);
+  color: var(--color-white);
   font-family: var(--font-geist), system-ui, sans-serif;
 }
 
 .input {
   width: 100%;
   padding: 0.75rem 1rem;
-  background: #111113;
-  border: 1px solid #27272a;
+  background: #141714;
+  border: 1px solid var(--color-zinc-800);
   border-radius: 0.75rem;
   outline: none;
   font-size: 0.875rem;
-  color: #fff;
+  color: var(--color-white);
   transition: border-color 0.15s;
 }
-.input::placeholder { color: #a1a1aa; }
-.input:focus { border-color: #22c55e; }
+.input::placeholder { color: var(--color-zinc-400); }
+.input:focus { border-color: var(--color-green-500); }
 
 .btn-primary {
   padding: 0.75rem 1.25rem;
-  background: #22c55e;
-  color: #000;
+  background: var(--color-green-500);
+  color: var(--color-black);
   border-radius: 0.75rem;
   font-weight: 600;
   font-size: 0.875rem;
@@ -41,7 +81,7 @@ body {
   align-items: center;
   justify-content: center;
 }
-.btn-primary:hover { background: #4ade80; }
+.btn-primary:hover { background: var(--color-green-400); }
 .btn-primary:active { transform: scale(0.97); }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
