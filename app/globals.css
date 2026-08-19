@@ -25,7 +25,7 @@ body {
   color: #fff;
   transition: border-color 0.15s;
 }
-.input::placeholder { color: #52525b; }
+.input::placeholder { color: #a1a1aa; }
 .input:focus { border-color: #22c55e; }
 
 .btn-primary {

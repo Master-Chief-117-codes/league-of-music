@@ -124,7 +124,7 @@ async function resizeImage(file: File, size = 200): Promise<Blob> {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1.5">{label}</label>
+      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -148,7 +148,7 @@ function TabBar({ active, onChange }: { active: string; onChange: (t: string) =>
       {tabs.map((t) => (
         <button key={t.key} onClick={() => onChange(t.key)}
           className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
-            active === t.key ? "text-white border-b-2 border-green-500" : "text-zinc-600 hover:text-zinc-400"
+            active === t.key ? "text-white border-b-2 border-green-500" : "text-zinc-400 hover:text-white"
           }`}>
           {t.label}
         </button>
@@ -1205,7 +1205,7 @@ export default function App() {
           <div className="w-20 h-20 bg-green-500 rounded-3xl flex items-center justify-center p-5 shadow-lg shadow-green-500/20"><IMusic /></div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">League of Music</h1>
-            <p className="text-zinc-500 text-sm mt-1.5 max-w-xs">Submit songs. Comment. Rank your favorites. Compete with friends.</p>
+            <p className="text-zinc-400 text-sm mt-1.5 max-w-xs">Submit songs. Comment. Rank your favorites. Compete with friends.</p>
           </div>
         </div>
         <button onClick={login} className="flex items-center gap-3 px-6 py-3.5 bg-white text-black rounded-2xl font-semibold text-sm shadow-lg active:scale-95 transition-transform">
@@ -1214,7 +1214,7 @@ export default function App() {
         <div className="w-full max-w-xs space-y-2">
           <div className="flex items-center gap-2">
             <div className="flex-1 h-px bg-zinc-800" />
-            <span className="text-[11px] text-zinc-600 uppercase tracking-widest">or email link</span>
+            <span className="text-xs text-zinc-400 uppercase tracking-widest">or email link</span>
             <div className="flex-1 h-px bg-zinc-800" />
           </div>
           {magicSent ? (
@@ -1238,7 +1238,7 @@ export default function App() {
           <div>
             <div className="w-11 h-11 bg-green-500 rounded-2xl flex items-center justify-center p-2.5 mb-5"><IMusic /></div>
             <h1 className="text-2xl font-bold">Set up your profile</h1>
-            <p className="text-zinc-500 text-sm mt-1">Let the league know who you are</p>
+            <p className="text-zinc-400 text-sm mt-1">Let the league know who you are</p>
           </div>
           <div className="space-y-5">
             <Field label="Your name">
@@ -1269,12 +1269,12 @@ export default function App() {
         <ToastStack />
         <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
           <div className="flex items-center justify-between">
-            <button onClick={() => { setViewingUserId(null); setEditingProfile(false); }} className="flex items-center gap-1 text-sm text-zinc-500 hover:text-white transition-colors">
+            <button onClick={() => { setViewingUserId(null); setEditingProfile(false); }} className="flex items-center gap-1 text-sm text-zinc-400 hover:text-white transition-colors">
               <IChevLeft /> Back
             </button>
             {isOwn && !editingProfile && (
               <button onClick={() => { setEditName(viewed.name); setEditArtist1(""); setEditArtist2(""); setEditOnRepeat(""); setEditingProfile(true); }}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full">
+                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full">
                 <IEdit /> Edit
               </button>
             )}
@@ -1302,8 +1302,8 @@ export default function App() {
                 ? <input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={30} className="input text-xl font-bold py-1.5" />
                 : <h1 className="text-2xl font-bold leading-tight">{viewed.name}</h1>
               }
-              {isOwn && editingProfile && <p className="text-[11px] text-zinc-600 mt-1">Tap photo to change</p>}
-              {isOwn && !editingProfile && <p className="text-zinc-600 text-sm mt-0.5">{viewed.email}</p>}
+              {isOwn && editingProfile && <p className="text-xs text-zinc-400 mt-1">Tap photo to change</p>}
+              {isOwn && !editingProfile && <p className="text-zinc-400 text-sm mt-0.5">{viewed.email}</p>}
             </div>
           </div>
           {editingProfile ? (
@@ -1317,24 +1317,24 @@ export default function App() {
               </Field>
               <div className="flex gap-2 pt-2">
                 <button onClick={saveProfile} disabled={!editName.trim()} className="btn-primary flex-1">Save</button>
-                <button onClick={() => setEditingProfile(false)} className="flex-1 py-3 text-sm font-semibold border border-zinc-800 rounded-xl text-zinc-500 hover:text-white transition-colors">Cancel</button>
+                <button onClick={() => setEditingProfile(false)} className="flex-1 py-3 text-sm font-semibold border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors">Cancel</button>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
               {[["Top Artists", viewed.top_artists], ["On Repeat", viewed.on_repeat]].map(([label, value]) => (
                 <div key={label as string} className="bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 space-y-0.5">
-                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">{label as string}</p>
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">{label as string}</p>
                   <p className="text-sm text-white">{(value as string) || "—"}</p>
                 </div>
               ))}
               <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 flex items-center justify-between">
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Rounds Won</p>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Rounds Won</p>
                 <p className="text-2xl font-bold text-green-400">{viewed.wins || 0}</p>
               </div>
               {isOwn && (
                 <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3.5 flex items-center justify-between">
-                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Total Points</p>
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Total Points</p>
                   <p className="text-2xl font-bold text-green-400">{fmtScore(viewed.points || 0)}</p>
                 </div>
               )}
@@ -1364,40 +1364,40 @@ export default function App() {
                   <span className="text-zinc-300 text-xs font-medium">{profile.name}</span>
                 </button>
               )}
-              <button onClick={logout} className="p-2 text-zinc-600 hover:text-zinc-300 transition-colors"><ILogout /></button>
+              <button onClick={logout} className="p-2 text-zinc-400 hover:text-white transition-colors"><ILogout /></button>
             </div>
           </div>
         </header>
         <main className="max-w-lg mx-auto px-4 pt-6 pb-24 space-y-6">
           {myLeagues.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Your Leagues</p>
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Your Leagues</p>
               {myLeagues.map((league: any) => (
                 <button key={league.id}
                   onClick={() => { setSelectedLeagueId(league.id); setWentBack(false); localStorage.setItem("last_league", league.id); }}
                   className="w-full flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-4 hover:border-zinc-700 transition-colors text-left active:scale-[.99]">
                   <div>
                     <p className="font-semibold text-white">{league.name}</p>
-                    {league.created_by === session.user.id && <p className="text-[11px] text-green-400 mt-0.5">Host</p>}
+                    {league.created_by === session.user.id && <p className="text-xs text-green-400 mt-0.5">Host</p>}
                   </div>
-                  <span className="text-zinc-600 text-xl leading-none">›</span>
+                  <span className="text-zinc-400 text-xl leading-none">›</span>
                 </button>
               ))}
             </div>
           )}
           {myLeagues.length === 0 && pendingRequests.length === 0 && !leagueRequested && (
             <div className="py-10 text-center">
-              <p className="text-zinc-500 text-sm">You're not in any leagues yet.</p>
-              <p className="text-zinc-600 text-xs mt-1">Ask a host for an invite link, or create your own.</p>
+              <p className="text-zinc-400 text-sm">You're not in any leagues yet.</p>
+              <p className="text-zinc-400 text-xs mt-1">Ask a host for an invite link, or create your own.</p>
             </div>
           )}
           {pendingRequests.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Pending Approval</p>
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Pending Approval</p>
               {pendingRequests.map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800/50 rounded-2xl px-4 py-3.5 opacity-70">
                   <p className="text-sm font-semibold text-zinc-400">{r.name}</p>
-                  <span className="text-[11px] font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">Pending</span>
+                  <span className="text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">Pending</span>
                 </div>
               ))}
             </div>
@@ -1405,20 +1405,20 @@ export default function App() {
           {leagueRequested ? (
             <div className="bg-green-500/8 border border-green-500/20 rounded-2xl px-4 py-4 text-center">
               <p className="text-green-400 text-sm font-medium">Request sent!</p>
-              <p className="text-zinc-500 text-xs mt-1">You'll get an email once your league is approved.</p>
+              <p className="text-zinc-400 text-xs mt-1">You'll get an email once your league is approved.</p>
             </div>
           ) : requestingLeague ? (
             <div className="space-y-2">
               <input value={newLeagueName} onChange={(e) => setNewLeagueName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && requestLeague()} placeholder="League name (e.g. The Boys)" className="input w-full" autoFocus />
               <div className="flex gap-2">
                 <button onClick={requestLeague} disabled={!newLeagueName.trim()} className="btn-primary flex-1">Request League</button>
-                <button onClick={() => { setRequestingLeague(false); setNewLeagueName(""); }} className="flex-1 py-3 text-sm font-semibold border border-zinc-800 rounded-xl text-zinc-500 hover:text-white transition-colors">Cancel</button>
+                <button onClick={() => { setRequestingLeague(false); setNewLeagueName(""); }} className="flex-1 py-3 text-sm font-semibold border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors">Cancel</button>
               </div>
-              <p className="text-[11px] text-zinc-600 text-center px-2">Your request will be reviewed before the league goes live.</p>
+              <p className="text-xs text-zinc-400 text-center px-2">Your request will be reviewed before the league goes live.</p>
             </div>
           ) : (
             <button onClick={() => setRequestingLeague(true)}
-              className="w-full py-4 border border-zinc-800 border-dashed rounded-2xl text-sm font-semibold text-zinc-500 hover:text-white hover:border-zinc-600 transition-colors">
+              className="w-full py-4 border border-zinc-800 border-dashed rounded-2xl text-sm font-semibold text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors">
               + Create a League
             </button>
           )}
@@ -1517,7 +1517,7 @@ export default function App() {
 
               {/* Title */}
               <div className="text-center mb-12 space-y-3">
-                <p className="text-[11px] font-bold tracking-[0.3em] text-indigo-400 uppercase">
+                <p className="text-xs font-bold tracking-[0.3em] text-indigo-400 uppercase">
                   Season {selectedLeague?.current_season ?? 1} Complete
                 </p>
                 <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-yellow-300 via-orange-400 to-pink-400 bg-clip-text text-transparent leading-none pb-1">
@@ -1537,7 +1537,7 @@ export default function App() {
                         <Avatar name={player.name} url={player.avatar_url} size="md" />
                         {globalRank === 0 && <span className="text-xl">👑</span>}
                         <p className="text-xs font-bold text-white text-center truncate w-full px-1">{player.name}</p>
-                        <p className="text-[10px] text-zinc-400">{player.points ?? 0} pts · {player.wins ?? 0}W</p>
+                        <p className="text-xs text-zinc-400">{player.points ?? 0} pts · {player.wins ?? 0}W</p>
                         <div className={`w-full ${style.h} rounded-t-xl bg-gradient-to-t ${style.color} border-t-2 border-x-2 ${style.border} flex items-start justify-center pt-2`}>
                           <span className={`text-xs font-black ${style.text}`}>{style.label}</span>
                         </div>
@@ -1552,12 +1552,12 @@ export default function App() {
                 <div className="space-y-2 mb-10">
                   {rest.map((player: any, idx) => (
                     <div key={player.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                      <span className="text-xs font-bold text-zinc-500 w-5 tabular-nums">#{idx + 4}</span>
+                      <span className="text-xs font-bold text-zinc-400 w-5 tabular-nums">#{idx + 4}</span>
                       <Avatar name={player.name} url={player.avatar_url} size="sm" />
                       <p className="text-sm font-medium text-zinc-200 flex-1 truncate">{player.name}</p>
                       <div className="text-right">
                         <p className="text-xs font-semibold text-zinc-300">{player.points ?? 0} pts</p>
-                        <p className="text-[10px] text-zinc-600">{player.wins ?? 0} wins</p>
+                        <p className="text-xs text-zinc-400">{player.wins ?? 0} wins</p>
                       </div>
                     </div>
                   ))}
@@ -1583,7 +1583,7 @@ export default function App() {
                     🚀 Start Season {(selectedLeague?.current_season ?? 1) + 1}
                   </button>
                 )}
-                <button onClick={() => setSelectedLeagueId(null)} className="w-full py-3 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                <button onClick={() => setSelectedLeagueId(null)} className="w-full py-3 text-xs text-zinc-400 hover:text-white transition-colors">
                   ← Back to leagues
                 </button>
               </div>
@@ -1597,7 +1597,7 @@ export default function App() {
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <button onClick={() => { setSelectedLeagueId(null); setWentBack(true); localStorage.removeItem("last_league"); }}
-              className="p-1 text-zinc-600 hover:text-white transition-colors flex-shrink-0" aria-label="Back to leagues">
+              className="p-1 text-zinc-400 hover:text-white transition-colors flex-shrink-0" aria-label="Back to leagues">
               <IChevLeft />
             </button>
             <div className="w-7 h-7 bg-green-500 rounded-lg flex items-center justify-center p-1.5 flex-shrink-0"><IMusic /></div>
@@ -1611,7 +1611,7 @@ export default function App() {
                 <span className="text-zinc-300 text-xs font-medium">{profile.name}</span>
               </button>
             )}
-            <button onClick={logout} className="p-2 text-zinc-600 hover:text-zinc-300 transition-colors"><ILogout /></button>
+            <button onClick={logout} className="p-2 text-zinc-400 hover:text-white transition-colors"><ILogout /></button>
           </div>
         </div>
       </header>
@@ -1628,17 +1628,17 @@ export default function App() {
             {week && (
               <div className="bg-indigo-300/15 border border-indigo-300/20 rounded-2xl px-4 py-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
                     {isPendingPrompt ? "Awaiting Prompt" : "This Round"}
                   </p>
                   <div className="flex items-center gap-3">
                     {countdown && isPendingPrompt && (
-                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-500"}`}>
+                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-400"}`}>
                         <IClock /> {countdown}
                       </span>
                     )}
                     {!isPendingPrompt && (
-                      <button onClick={shareRound} className="text-zinc-600 hover:text-zinc-300 transition-colors"><IShare /></button>
+                      <button onClick={shareRound} className="text-zinc-400 hover:text-white transition-colors"><IShare /></button>
                     )}
                   </div>
                 </div>
@@ -1660,9 +1660,9 @@ export default function App() {
             {/* Ready for next round */}
             {identitiesRevealed && (
               <div className="space-y-3">
-                <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Next Round</p>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Next Round</p>
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs text-zinc-600">
+                  <div className="flex items-center justify-between text-xs text-zinc-400">
                     <span>{[...readyUsers].map((id) => id === session.user.id ? "You" : profilesMap[id]?.name).filter(Boolean).join(", ") || "No one yet"}</span>
                     <span className="tabular-nums">{readyUsers.size} / {Object.keys(profilesMap).length}</span>
                   </div>
@@ -1690,7 +1690,7 @@ export default function App() {
                     <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-lg">🎵</div>
                     <div>
                       <p className="font-bold text-sm">Welcome to {selectedLeague?.name ?? "League of Music"}!</p>
-                      <p className="text-xs text-zinc-500">{isHost ? "You're the host — start the first round when ready." : "Waiting for the host to kick things off."}</p>
+                      <p className="text-xs text-zinc-400">{isHost ? "You're the host — start the first round when ready." : "Waiting for the host to kick things off."}</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -1702,10 +1702,10 @@ export default function App() {
                       ["5", "Scores & reveal", "identities revealed, points tallied"],
                     ].map(([num, title, sub]) => (
                       <div key={num} className="flex gap-3 items-start">
-                        <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{num}</span>
+                        <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{num}</span>
                         <div>
                           <p className="text-xs font-semibold text-zinc-200">{title}</p>
-                          <p className="text-[11px] text-zinc-500">{sub}</p>
+                          <p className="text-xs text-zinc-400">{sub}</p>
                         </div>
                       </div>
                     ))}
@@ -1714,17 +1714,17 @@ export default function App() {
 
                 {/* Members in this league */}
                 <div className="space-y-2">
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Players ({Object.keys(profilesMap).length})</p>
+                  <p className="text-xs text-zinc-400 uppercase tracking-widest">Players ({Object.keys(profilesMap).length})</p>
                   <div className="space-y-1.5">
                     {Object.values(profilesMap).map((p: any) => (
                       <div key={p.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-zinc-900/50 border border-zinc-800/40">
                         <Avatar name={p.name} url={p.avatar_url} size="sm" />
                         <span className="text-sm text-zinc-300">{p.name}</span>
-                        {p.id === selectedLeague?.created_by && <span className="ml-auto text-[10px] text-zinc-600">host</span>}
+                        {p.id === selectedLeague?.created_by && <span className="ml-auto text-xs text-zinc-400">host</span>}
                       </div>
                     ))}
                     {Object.keys(profilesMap).length === 0 && (
-                      <p className="text-xs text-zinc-600 px-1">No other players yet — share the invite link!</p>
+                      <p className="text-xs text-zinc-400 px-1">No other players yet — share the invite link!</p>
                     )}
                   </div>
                 </div>
@@ -1752,7 +1752,7 @@ export default function App() {
               <div className="rounded-2xl overflow-hidden border border-zinc-800/60 bg-gradient-to-br from-zinc-950 to-black">
                 <div className="px-4 py-3 border-b border-zinc-800/40 flex items-center gap-2">
                   <span className="text-sm">🎵</span>
-                  <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">How it works</p>
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">How it works</p>
                 </div>
                 <div className="px-4 py-4 space-y-4">
                   {[
@@ -1764,11 +1764,11 @@ export default function App() {
                   ].map(({ n, title, sub }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-[10px] font-bold text-green-400">{n}</span>
+                        <span className="text-xs font-bold text-green-400">{n}</span>
                       </span>
                       <div>
                         <p className="text-sm font-semibold text-white leading-snug">{title}</p>
-                        {sub && <p className="text-xs text-zinc-500 leading-relaxed mt-0.5">{sub}</p>}
+                        {sub && <p className="text-xs text-zinc-400 leading-relaxed mt-0.5">{sub}</p>}
                       </div>
                     </div>
                   ))}
@@ -1785,7 +1785,7 @@ export default function App() {
               const hasRequirements = reqReactions || reqComments > 0;
               return (
                 <div className="rounded-2xl border border-zinc-700/60 bg-zinc-900/60 px-5 py-5 space-y-3">
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{hasRequirements ? "To unlock voting" : "How to vote"}</p>
+                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{hasRequirements ? "To unlock voting" : "How to vote"}</p>
                   <div className="space-y-2.5">
                     {reqReactions && (
                       <div className="flex items-center gap-3">
@@ -1838,16 +1838,16 @@ export default function App() {
               return (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-zinc-500">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
+                    <span className="text-xs text-zinc-400">{submissions.length} / {Object.keys(profilesMap).length} submitted</span>
                     {countdown && !submissionsLocked && (
-                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-600"}`}>
+                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${countdown === "Time's up!" ? "text-red-400" : "text-zinc-400"}`}>
                         <IClock /> {countdown}
                       </span>
                     )}
                   </div>
                   {!submissionsLocked && notSubmitted.length > 0 && (
                     <div className="px-3 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
-                      <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on</p>
+                      <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on</p>
                       <p className="text-xs text-amber-200/90 leading-snug">
                         {notSubmitted.map((p: any) => p.name ?? "Player").join(", ")}
                       </p>
@@ -1866,14 +1866,14 @@ export default function App() {
             {/* Song cards — visible once submissions locked; identities hidden until reveal */}
             <div className="space-y-3">
               {week && isPendingPrompt && (
-                <div className="py-12 text-center"><p className="text-zinc-600 text-sm">Round starts once the prompt is submitted.</p></div>
+                <div className="py-12 text-center"><p className="text-zinc-400 text-sm">Round starts once the prompt is submitted.</p></div>
               )}
               {submissionsLocked && !identitiesRevealed && (
                 <div className="space-y-1.5">
                   {voteCountdown && (
                     <div className={`flex items-center justify-between px-4 py-3 rounded-2xl border ${voteCountdown === "Time's up!" ? "border-red-500/30 bg-red-500/5" : "border-zinc-800/60 bg-zinc-950"}`}>
                       <div>
-                        <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-0.5">Voting closes in</p>
+                        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-0.5">Voting closes in</p>
                         <span className={`text-xl font-bold tabular-nums tracking-tight ${voteCountdown === "Time's up!" ? "text-red-400" : "text-zinc-200"}`}>
                           {voteCountdown}
                         </span>
@@ -1882,7 +1882,7 @@ export default function App() {
                     </div>
                   )}
                   <div className="flex items-center justify-between px-1">
-                    <span className="text-[11px] text-zinc-600">
+                    <span className="text-xs text-zinc-400">
                       {voteLocks.size} / {Object.keys(profilesMap).length} locked in
                     </span>
                   </div>
@@ -1890,7 +1890,7 @@ export default function App() {
                     const notLocked = Object.values(profilesMap).filter((p: any) => !voteLocks.has(p.id));
                     return notLocked.length > 0 && (
                       <div className="px-3 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
-                        <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on votes from</p>
+                        <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-1">Waiting on votes from</p>
                         <p className="text-xs text-amber-200/90 leading-snug">
                           {notLocked.map((p: any) => p.name ?? "Player").join(", ")}
                         </p>
@@ -1924,7 +1924,7 @@ export default function App() {
                     {nonVoters.length > 0 && (
                       <div className="px-4 py-3 rounded-2xl border border-red-500/25 bg-red-500/5 space-y-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-semibold text-red-400/80 uppercase tracking-widest">Didn't vote</p>
+                          <p className="text-xs font-semibold text-red-400/80 uppercase tracking-widest">Didn't vote</p>
                           <span className="text-lg font-bold text-red-500">-1 pt</span>
                         </div>
                         <p className="text-sm text-red-200/80">{nonVoters.map(firstName).join(", ")}</p>
@@ -1932,7 +1932,7 @@ export default function App() {
                     )}
                     {nonSubmitters.length > 0 && (
                       <div className="px-4 py-3 rounded-2xl border border-zinc-700/40 bg-zinc-900/50 space-y-1">
-                        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Didn't submit</p>
+                        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Didn't submit</p>
                         <p className="text-sm text-zinc-400">{nonSubmitters.map(firstName).join(", ")}</p>
                       </div>
                     )}
@@ -1978,14 +1978,14 @@ export default function App() {
                 if (!myPicks.length) return null;
                 return (
                   <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 px-4 py-3 space-y-2">
-                    <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Your votes</p>
+                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Your votes</p>
                     {myPicks.map(({ rank, song }) => (
                       <div key={rank} className="flex items-center gap-2.5">
-                        <span className="text-xs font-bold text-zinc-600 w-5 tabular-nums">#{rank}</span>
+                        <span className="text-xs font-bold text-zinc-400 w-5 tabular-nums">#{rank}</span>
                         {song!.album_art_url && <img src={song!.album_art_url} alt="" className="w-7 h-7 rounded flex-shrink-0 object-cover" />}
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-zinc-300 truncate">{song!.track_name ?? "Unknown track"}</p>
-                          <p className="text-[11px] text-zinc-600 truncate">{song!.artist_name}</p>
+                          <p className="text-xs text-zinc-400 truncate">{song!.artist_name}</p>
                         </div>
                       </div>
                     ))}
@@ -2013,22 +2013,22 @@ export default function App() {
                     {/* Header row */}
                     <div className="flex items-center justify-between px-4 pt-3 pb-2">
                       <div className="flex items-center gap-2">
-                        {identitiesRevealed && score > 0 && <span className="text-xs font-bold tabular-nums text-zinc-600">#{densePlace(song.id)}</span>}
+                        {identitiesRevealed && score > 0 && <span className="text-xs font-bold tabular-nums text-zinc-400">#{densePlace(song.id)}</span>}
                         {isWinner && (
-                          <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
+                          <span className="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">Winner</span>
                         )}
                         {identitiesRevealed && promptAuthorTopPick === song.id && (
-                          <span className="text-[11px] font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">⭐ {profilesMap[week?.prompt_author_id]?.name ?? "Prompt setter"}&apos;s #1</span>
+                          <span className="text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">⭐ {profilesMap[week?.prompt_author_id]?.name ?? "Prompt setter"}&apos;s #1</span>
                         )}
                       </div>
                       {identitiesRevealed && (
                         <button
                           onClick={() => { if (!isOwnSong) setViewingUserId(song.user_id); }}
-                          className={`flex items-center gap-1.5 text-xs ${isOwnSong ? "text-zinc-600 cursor-default" : "text-zinc-400 hover:text-white transition-colors"} ${justRevealed ? "reveal-pop" : ""}`}
+                          className={`flex items-center gap-1.5 text-xs ${isOwnSong ? "text-zinc-400 cursor-default" : "text-zinc-400 hover:text-white transition-colors"} ${justRevealed ? "reveal-pop" : ""}`}
                           style={justRevealed ? { animationDelay: `${index * 80}ms` } : {}}>
                           <Avatar name={submitterName} url={isOwnSong ? profile?.avatar_url : profilesMap[song.user_id]?.avatar_url} size="sm" />
                           <span className="font-medium">{submitterName}</span>
-                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400 leading-none">-1</span>}
+                          {!voteLocks.has(song.user_id) && <span className="text-xs font-bold text-red-400 leading-none">-1</span>}
                         </button>
                       )}
                     </div>
@@ -2044,10 +2044,10 @@ export default function App() {
                             {song.track_name ? (
                               <>
                                 <p className="text-sm font-semibold text-zinc-200 truncate">{song.track_name}</p>
-                                <p className="text-xs text-zinc-500 truncate">{song.artist_name}</p>
+                                <p className="text-xs text-zinc-400 truncate">{song.artist_name}</p>
                               </>
                             ) : (
-                              <p className="text-xs text-zinc-500">Unknown track</p>
+                              <p className="text-xs text-zinc-400">Unknown track</p>
                             )}
                           </div>
                           <div className="flex flex-col gap-1 flex-shrink-0 items-end">
@@ -2058,13 +2058,13 @@ export default function App() {
                                 return (<>
                                   {isApple && (
                                     <a href={song.spotify_url} target="_blank" rel="noopener noreferrer"
-                                      className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                      className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors whitespace-nowrap">
                                       Apple Music ↗
                                     </a>
                                   )}
                                   {spotifyId && (
                                     <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
-                                      className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                      className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
                                       Spotify ↗
                                     </a>
                                   )}
@@ -2074,7 +2074,7 @@ export default function App() {
                               if (!listenHref) return null;
                               return (
                                 <a href={listenHref} target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
+                                  className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-green-400 hover:bg-zinc-700 transition-colors whitespace-nowrap">
                                   Listen ↗
                                 </a>
                               );
@@ -2089,14 +2089,14 @@ export default function App() {
                       {identitiesRevealed && score > 0 ? (
                         <span className="flex items-baseline gap-1.5">
                           <span className="text-sm font-bold text-green-400 tabular-nums">{fmtScore(score)} pts</span>
-                          {!voteLocks.has(song.user_id) && <span className="text-[10px] font-bold text-red-400">-1</span>}
+                          {!voteLocks.has(song.user_id) && <span className="text-xs font-bold text-red-400">-1</span>}
                         </span>
                       ) : (
                         <span />
                       )}
 
                       {isOwnSong ? (
-                        <span className="text-xs text-zinc-700 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full">Your song</span>
+                        <span className="text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full">Your song</span>
                       ) : !identitiesRevealed ? (
                         canVote ? (
                           <div className="flex gap-1.5">
@@ -2106,8 +2106,8 @@ export default function App() {
                                 <button key={r} onClick={() => !isLockedIn && setVoteRank(song.id, r)}
                                   className={`w-9 h-9 rounded-full text-xs font-bold transition-all border ${
                                     isLockedIn
-                                      ? selected ? "bg-green-500/50 border-green-500/50 text-black cursor-default" : "border-zinc-800 text-zinc-700 cursor-default"
-                                      : selected ? "bg-green-500 border-green-500 text-black active:scale-95" : "border-zinc-700 text-zinc-500 hover:border-zinc-400 hover:text-zinc-200 active:scale-95"
+                                      ? selected ? "bg-green-500/50 border-green-500/50 text-black cursor-default" : "border-zinc-800 text-zinc-500 cursor-default"
+                                      : selected ? "bg-green-500 border-green-500 text-black active:scale-95" : "border-zinc-700 text-zinc-400 hover:border-zinc-400 hover:text-white active:scale-95"
                                   }`}>
                                   #{r}
                                 </button>
@@ -2115,12 +2115,12 @@ export default function App() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-zinc-600 italic">{requireReactions && !allReacted ? "react to all songs to vote" : `comment on ${minComments - myTotalComments} more song${minComments - myTotalComments === 1 ? "" : "s"} to vote`}</span>
+                          <span className="text-xs text-zinc-400 italic">{requireReactions && !allReacted ? "react to all songs to vote" : `comment on ${minComments - myTotalComments} more song${minComments - myTotalComments === 1 ? "" : "s"} to vote`}</span>
                         )
                       ) : (
                         myRanks[song.id]
-                          ? <span className="text-xs text-zinc-600">you ranked #{myRanks[song.id]}</span>
-                          : <span className="text-xs text-zinc-800">—</span>
+                          ? <span className="text-xs text-zinc-400">you ranked #{myRanks[song.id]}</span>
+                          : <span className="text-xs text-zinc-500">—</span>
                       )}
                     </div>
 
@@ -2132,7 +2132,7 @@ export default function App() {
                         return (
                           <button key={emoji} onClick={() => toggleReaction(song.id, emoji)}
                             className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 ${
-                              reacted ? "bg-zinc-700 border-zinc-600 text-white" : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
+                              reacted ? "bg-zinc-700 border-zinc-600 text-white" : "border-zinc-800 text-zinc-400 hover:border-zinc-600"
                             }`}>
                             <span>{emoji}</span>
                             {count > 0 && <span className="tabular-nums">{count}</span>}
@@ -2162,7 +2162,7 @@ export default function App() {
                     {/* Guess who — available once voting is unlocked, before reveal */}
                     {!identitiesRevealed && !isOwnSong && canVote && otherPlayers.length > 0 && (
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-3">
-                        <p className="text-[11px] text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
+                        <p className="text-xs text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
                           {otherPlayers.map((p: any) => (
                             <button key={p.id} onClick={async () => {
@@ -2175,7 +2175,7 @@ export default function App() {
                               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                                 guesses[song.id] === p.id
                                   ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
-                                  : "border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                                  : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white"
                               }`}>
                               {p.name}
                             </button>
@@ -2189,7 +2189,7 @@ export default function App() {
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-2.5">
                         {myGuess === song.user_id
                           ? <p className="text-xs text-green-400 font-medium">✓ You guessed right!</p>
-                          : <p className="text-xs text-zinc-500">✗ You guessed <span className="text-zinc-400">{profilesMap[myGuess]?.name || "?"}</span></p>
+                          : <p className="text-xs text-zinc-400">✗ You guessed <span className="text-zinc-400">{profilesMap[myGuess]?.name || "?"}</span></p>
                         }
                       </div>
                     )}
@@ -2211,8 +2211,8 @@ export default function App() {
                           )}
                           {wrong.length > 0 && (
                             <p className="text-xs text-zinc-400">
-                              <span className="text-zinc-500 font-medium">Fooled:</span>{" "}
-                              <span className="text-zinc-500">{wrong.map((g) => nameOf(g.userId)).join(", ")}</span>
+                              <span className="text-zinc-400 font-medium">Fooled:</span>{" "}
+                              <span className="text-zinc-400">{wrong.map((g) => nameOf(g.userId)).join(", ")}</span>
                             </p>
                           )}
                         </div>
@@ -2223,14 +2223,14 @@ export default function App() {
                     {isExpanded && (
                       <div className="border-t border-zinc-800/40 px-4 py-3 space-y-3">
                         {songComments.length === 0 ? (
-                          <p className="text-xs text-zinc-700">No comments yet — be the first!</p>
+                          <p className="text-xs text-zinc-400">No comments yet — be the first!</p>
                         ) : songComments.map((c: any) => {
                           const liked = myCommentLikes.has(c.id);
                           const likeCount = commentLikes[c.id] || 0;
                           return (
                             <div key={c.id} className="flex items-start justify-between gap-2">
                               <div className="space-y-0.5 flex-1 min-w-0">
-                                <span className="text-[11px] font-semibold text-zinc-500">
+                                <span className="text-xs font-semibold text-zinc-400">
                                   {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name || "Player"}
                                 </span>
                                 {c.text && <p className="text-sm text-zinc-300 leading-snug break-words">{renderMentions(c.text)}</p>}
@@ -2241,14 +2241,14 @@ export default function App() {
                               <div className="flex gap-1 flex-shrink-0 mt-3">
                                 <button onClick={() => toggleCommentLaugh(c.id)}
                                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 ${
-                                    myCommentLaughs.has(c.id) ? "bg-zinc-700 border-zinc-600 text-yellow-300" : "border-zinc-800 text-zinc-600 hover:border-zinc-600"
+                                    myCommentLaughs.has(c.id) ? "bg-zinc-700 border-zinc-600 text-yellow-300" : "border-zinc-800 text-zinc-400 hover:border-zinc-600"
                                   }`}>
                                   <span>😂</span>
                                   {(commentLaughs[c.id] || 0) > 0 && <span className="tabular-nums">{commentLaughs[c.id]}</span>}
                                 </button>
                                 <button onClick={() => toggleCommentLike(c.id)}
                                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-all active:scale-95 ${
-                                    liked ? "bg-zinc-700 border-zinc-600 text-pink-400" : "border-zinc-800 text-zinc-600 hover:border-zinc-600"
+                                    liked ? "bg-zinc-700 border-zinc-600 text-pink-400" : "border-zinc-800 text-zinc-400 hover:border-zinc-600"
                                   }`}>
                                   <span>❤️</span>
                                   {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
@@ -2284,7 +2284,7 @@ export default function App() {
                                 </div>
                               )}
                               {commentMedia[song.id]?.uploading && (
-                                <p className="text-xs text-zinc-500">Uploading…</p>
+                                <p className="text-xs text-zinc-400">Uploading…</p>
                               )}
                               <div className="flex gap-2">
                                 <input maxLength={150} value={commentInputs[song.id] || ""}
@@ -2292,7 +2292,7 @@ export default function App() {
                                   onKeyDown={(e) => e.key === "Enter" && submitComment(song.id)}
                                   placeholder="Say something nice or funny 😂"
                                   className="input flex-1 py-2 text-xs" />
-                                <label className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer flex-shrink-0">
+                                <label className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white transition-colors cursor-pointer flex-shrink-0">
                                   🖼️
                                   <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCommentMedia(song.id, f); e.target.value = ""; }} />
                                 </label>
@@ -2315,11 +2315,11 @@ export default function App() {
             {/* Host controls */}
             {isHost && (
               <div className="pt-12 border-t border-zinc-800 mt-10 space-y-6">
-                <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-widest">Host Controls</p>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Host Controls</p>
 
                 {transferring ? (
                   <div className="space-y-1.5">
-                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">Transfer ownership to:</p>
+                    <p className="text-xs text-zinc-400 uppercase tracking-widest mb-2">Transfer ownership to:</p>
                     {Object.values(profilesMap).filter((p: any) => p.id !== session.user.id).map((p: any) => (
                       <button key={p.id} onClick={() => transferHost(p.id)}
                         className="w-full py-2.5 text-sm border border-zinc-800 rounded-xl text-zinc-400 hover:border-amber-500/40 hover:text-amber-400 transition-colors">
@@ -2327,15 +2327,15 @@ export default function App() {
                       </button>
                     ))}
                     {Object.values(profilesMap).filter((p: any) => p.id !== session.user.id).length === 0 && (
-                      <p className="text-xs text-zinc-600 text-center py-2">No other members to transfer to.</p>
+                      <p className="text-xs text-zinc-400 text-center py-2">No other members to transfer to.</p>
                     )}
-                    <button onClick={() => setTransferring(false)} className="w-full py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Cancel</button>
+                    <button onClick={() => setTransferring(false)} className="w-full py-2 text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
                   </div>
                 ) : (
                   <>
                     {/* Round actions */}
                     <div className="space-y-2">
-                      <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Round</p>
+                      <p className="text-xs text-zinc-400 uppercase tracking-widest">Round</p>
                       {week && !submissionsLocked && !isPendingPrompt && (
                         <button onClick={closeSubmissions}
                           className="w-full py-3 text-xs font-semibold rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition-all active:scale-95">
@@ -2354,22 +2354,22 @@ export default function App() {
                           </button>
                         ) : (
                           <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-3 space-y-2 col-span-2">
-                            <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Prompt chooser</p>
+                            <p className="text-xs text-zinc-400 uppercase tracking-widest">Prompt chooser</p>
                             <div className="flex flex-wrap gap-1.5">
                               <button onClick={() => setNewRoundPick("random")}
-                                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === "random" ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === "random" ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                                 Random
                               </button>
                               {Object.values(profilesMap).map((p: any) => (
                                 <button key={p.id} onClick={() => setNewRoundPick(p.id)}
-                                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === p.id ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${newRoundPick === p.id ? "bg-green-500/20 border-green-500/40 text-green-300" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                                   {p.name}
                                 </button>
                               ))}
                             </div>
                             <div className="flex gap-2 pt-1">
                               <button onClick={() => setNewRoundPick(null)}
-                                className="flex-1 py-2 text-xs rounded-lg border border-zinc-700 text-zinc-500 hover:border-zinc-500 transition-colors">
+                                className="flex-1 py-2 text-xs rounded-lg border border-zinc-700 text-zinc-400 hover:border-zinc-500 transition-colors">
                                 Cancel
                               </button>
                               <button onClick={() => startNewRound(newRoundPick === "random" ? undefined : newRoundPick)}
@@ -2385,7 +2385,7 @@ export default function App() {
                     {/* Notify */}
                     {week && (
                       <div className="space-y-2">
-                        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Notify</p>
+                        <p className="text-xs text-zinc-400 uppercase tracking-widest">Notify</p>
                         {isPendingPrompt && (
                           <button onClick={() => window.open(`sms:?body=${encodeURIComponent(`🎵 Hey ${promptAuthorName}, it's your turn to pick the prompt for ${selectedLeague?.name}! You have 24 hours. ${window.location.origin}`)}`)}
                             className="w-full py-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-95">
@@ -2415,22 +2415,22 @@ export default function App() {
 
                     {/* League */}
                     <div className="space-y-2">
-                      <p className="text-[10px] text-zinc-600 uppercase tracking-widest">League</p>
+                      <p className="text-xs text-zinc-400 uppercase tracking-widest">League</p>
                       {renamingLeague ? (
                         <div className="flex gap-2">
                           <input value={renameInput} onChange={(e) => setRenameInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && renameLeague()} placeholder={selectedLeague?.name} maxLength={40} className="input flex-1 min-w-0 text-sm" autoFocus />
                           <button onClick={renameLeague} disabled={!renameInput.trim()} className="btn-primary px-4 text-xs">Save</button>
-                          <button onClick={() => setRenamingLeague(false)} className="px-3 text-xs text-zinc-500 hover:text-white transition-colors">Cancel</button>
+                          <button onClick={() => setRenamingLeague(false)} className="px-3 text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
                         </div>
                       ) : (
                         <button onClick={() => { setRenameInput(selectedLeague?.name ?? ""); setRenamingLeague(true); }}
-                          className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors">
+                          className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white transition-colors">
                           Rename League
                         </button>
                       )}
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={generateInviteLink}
-                          className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
+                          className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
                           Invite Link
                         </button>
                         {submissionsLocked && submissions.length > 0 && week?.playlist_url ? (
@@ -2447,18 +2447,18 @@ export default function App() {
                           ) : hasSpotifyConnection ? (
                             <div className="flex gap-2">
                               <div className="flex-1 py-3 text-xs font-semibold rounded-xl border border-green-500/20 text-green-500/60 text-center">Spotify ✓</div>
-                              <button onClick={() => { clearSpotifyToken(); startSpotifyAuth(); }} className="py-3 px-3 text-xs rounded-xl border border-zinc-800 text-zinc-600 hover:text-zinc-400 transition-colors">Reconnect</button>
+                              <button onClick={() => { clearSpotifyToken(); startSpotifyAuth(); }} className="py-3 px-3 text-xs rounded-xl border border-zinc-800 text-zinc-400 hover:text-white transition-colors">Reconnect</button>
                             </div>
                           ) : (
                             <button onClick={startSpotifyAuth}
-                              className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-green-500/40 hover:text-green-400 transition-colors">
+                              className="py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-green-500/40 hover:text-green-400 transition-colors">
                               Connect Spotify
                             </button>
                           )
                         )}
                       </div>
                       <button onClick={() => setTransferring(true)}
-                        className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-500 hover:border-amber-500/40 hover:text-amber-400 transition-colors">
+                        className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-amber-500/40 hover:text-amber-400 transition-colors">
                         Transfer Ownership
                       </button>
                     </div>
@@ -2468,14 +2468,14 @@ export default function App() {
                       const noDuplicates = selectedLeague?.voting_requirements?.no_duplicates === true;
                       return (
                         <div className="space-y-2">
-                          <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Duplicate Songs</p>
+                          <p className="text-xs text-zinc-400 uppercase tracking-widest">Duplicate Songs</p>
                           <div className="flex gap-2">
                             <button onClick={() => saveVotingReqs({ no_duplicates: true })}
-                              className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${noDuplicates ? "border-red-500/40 text-red-400 bg-red-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                              className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${noDuplicates ? "border-red-500/40 text-red-400 bg-red-500/10" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                               Block repeats
                             </button>
                             <button onClick={() => saveVotingReqs({ no_duplicates: false })}
-                              className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${!noDuplicates ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                              className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${!noDuplicates ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                               Allow repeats
                             </button>
                           </div>
@@ -2490,26 +2490,26 @@ export default function App() {
                       const minComments = vr.min_comments !== undefined && vr.min_comments !== null ? vr.min_comments : null;
                       return (
                         <div className="space-y-3">
-                          <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Voting Requirements</p>
+                          <p className="text-xs text-zinc-400 uppercase tracking-widest">Voting Requirements</p>
                           <div className="space-y-2">
-                            <p className="text-xs text-zinc-500">Emoji reactions</p>
+                            <p className="text-xs text-zinc-400">Emoji reactions</p>
                             <div className="flex gap-2">
                               <button onClick={() => saveVotingReqs({ require_reactions: true })}
-                                className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${reqReactions ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${reqReactions ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                                 Required
                               </button>
                               <button onClick={() => saveVotingReqs({ require_reactions: false })}
-                                className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${!reqReactions ? "border-amber-500/40 text-amber-400 bg-amber-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${!reqReactions ? "border-amber-500/40 text-amber-400 bg-amber-500/10" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                                 Not required
                               </button>
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <p className="text-xs text-zinc-500">Comment minimum</p>
+                            <p className="text-xs text-zinc-400">Comment minimum</p>
                             <div className="flex gap-1.5 flex-wrap">
                               {([{ label: "None", value: 0 }, { label: "1", value: 1 }, { label: "2", value: 2 }, { label: "3", value: 3 }, { label: "Half of songs", value: null }] as { label: string; value: number | null }[]).map(({ label, value }) => (
                                 <button key={label} onClick={() => saveVotingReqs({ min_comments: value })}
-                                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${minComments === value ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>
+                                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${minComments === value ? "border-green-500/40 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
                                   {label}
                                 </button>
                               ))}
@@ -2521,7 +2521,7 @@ export default function App() {
                     {/* End Season */}
                     {identitiesRevealed && !selectedLeague?.season_over && (
                       <div className="space-y-2 pt-2 border-t border-zinc-800">
-                        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Season</p>
+                        <p className="text-xs text-zinc-400 uppercase tracking-widest">Season</p>
                         <button onClick={async () => {
                           if (!confirm("End the season? This will lock the league and show the final standings.")) return;
                           await fetch("/api/end-season", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ leagueId: selectedLeagueId }) });
@@ -2541,9 +2541,9 @@ export default function App() {
         {/* ── MEMBERS TAB ── */}
         {activeTab === "leaderboard" && (
           <div className="space-y-3 pt-2">
-            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Who's in the group</p>
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Who's in the group</p>
             {leaderboard.length === 0 ? (
-              <p className="text-zinc-600 text-sm py-10 text-center">No players yet.</p>
+              <p className="text-zinc-400 text-sm py-10 text-center">No players yet.</p>
             ) : leaderboard.map((p: any) => {
               const isYou = p.id === session.user.id;
               return (
@@ -2552,13 +2552,13 @@ export default function App() {
                     className="w-full flex items-center gap-3 bg-zinc-950 border border-zinc-800/60 rounded-2xl px-4 py-3.5 hover:border-zinc-700 transition-colors text-left">
                     <Avatar name={p.name} url={p.avatar_url} size="sm" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white">{p.name}{isYou && <span className="ml-1.5 text-[10px] text-zinc-600">(you)</span>}</p>
-                      {p.top_artists && <p className="text-xs text-zinc-600 truncate">{p.top_artists}</p>}
+                      <p className="text-sm font-medium text-white">{p.name}{isYou && <span className="ml-1.5 text-xs text-zinc-400">(you)</span>}</p>
+                      {p.top_artists && <p className="text-xs text-zinc-400 truncate">{p.top_artists}</p>}
                     </div>
                   </button>
                   {isHost && !isYou && (
                     <button onClick={() => removeMember(p.id)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-zinc-700 hover:text-red-400 transition-colors rounded-lg"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-red-400 transition-colors rounded-lg"
                       title="Remove from league">
                       <span className="text-sm font-bold">✕</span>
                     </button>
@@ -2572,13 +2572,13 @@ export default function App() {
         {/* ── HISTORY TAB ── */}
         {activeTab === "history" && (
           <div className="space-y-3 pt-2">
-            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Round History</p>
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Round History</p>
             {loadingHistory ? (
               <div className="flex justify-center py-16">
                 <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : history.length === 0 ? (
-              <p className="text-zinc-600 text-sm py-10 text-center">No rounds yet.</p>
+              <p className="text-zinc-400 text-sm py-10 text-center">No rounds yet.</p>
             ) : history.filter((w: any) => w.id !== week?.id).map((w: any, i: number) => {
               const winnerNames = w.winners.map((s: any) => profilesMap[s.user_id]?.name ?? "Player").join(" & ");
               const isExpanded = expandedHistoryId === w.id;
@@ -2586,19 +2586,19 @@ export default function App() {
                 <div key={w.id} className="rounded-2xl border overflow-hidden border-zinc-800 bg-zinc-950">
                   <button className="w-full px-4 py-4 text-left space-y-2" onClick={() => setExpandedHistoryId(isExpanded ? null : w.id)}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
                         {`Round ${history.filter((x: any) => x.id !== week?.id).length - i}`}
                       </span>
-                      <span className="text-[11px] text-zinc-600">{fmtDate(w.created_at)}</span>
+                      <span className="text-xs text-zinc-400">{fmtDate(w.created_at)}</span>
                     </div>
                     <p className="text-sm font-semibold text-white leading-snug">{w.prompt || "Awaiting prompt…"}</p>
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs text-zinc-600">
+                      <span className="text-xs text-zinc-400">
                         {`${w.songs.length} submission${w.songs.length !== 1 ? "s" : ""}`}
                       </span>
                       {winnerNames
                         ? <span className="text-xs font-medium text-amber-400">🏆 {winnerNames}</span>
-                        : <span className="text-xs text-zinc-700">No winner</span>
+                        : <span className="text-xs text-zinc-400">No winner</span>
                       }
                     </div>
                   </button>
@@ -2622,16 +2622,16 @@ export default function App() {
                             ) : null}
                             <div className="px-3 py-2 flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className={`text-xs font-bold ${si === 0 ? "text-amber-400" : "text-zinc-600"}`}>#{si + 1}</span>
-                                <span className="text-xs text-zinc-500 truncate">{submitter}</span>
+                                <span className={`text-xs font-bold ${si === 0 ? "text-amber-400" : "text-zinc-400"}`}>#{si + 1}</span>
+                                <span className="text-xs text-zinc-400 truncate">{submitter}</span>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 {rxEntries.map(([emoji, count]) => count > 0 && (
-                                  <span key={emoji} className="text-xs text-zinc-500">{emoji}{count}</span>
+                                  <span key={emoji} className="text-xs text-zinc-400">{emoji}{count}</span>
                                 ))}
                                 {s.commentCount > 0 && (
                                   <button onClick={() => setExpandedHistoryComments((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })}
-                                    className={`text-xs flex items-center gap-0.5 transition-colors ${commentsOpen ? "text-blue-400" : "text-zinc-600 hover:text-zinc-400"}`}>
+                                    className={`text-xs flex items-center gap-0.5 transition-colors ${commentsOpen ? "text-blue-400" : "text-zinc-400 hover:text-white"}`}>
                                     <IComment />{s.commentCount}
                                   </button>
                                 )}
@@ -2642,7 +2642,7 @@ export default function App() {
                               <div className="border-t border-zinc-800/40 px-3 py-2.5 space-y-2">
                                 {s.comments.map((c: any) => (
                                   <div key={c.submission_id + c.user_id + c.text} className="space-y-0.5">
-                                    <span className="text-[11px] font-semibold text-zinc-500">
+                                    <span className="text-xs font-semibold text-zinc-400">
                                       {c.user_id === session.user.id ? "You" : profilesMap[c.user_id]?.name || "Player"}
                                     </span>
                                     {c.text && <p className="text-xs text-zinc-400 leading-snug">{renderMentions(c.text)}</p>}
@@ -2670,7 +2670,7 @@ export default function App() {
           <div className="w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div>
               <p className="text-sm font-semibold text-white mb-1">Invite link</p>
-              <p className="text-xs text-zinc-500">Tap the link below to copy, or use the share button.</p>
+              <p className="text-xs text-zinc-400">Tap the link below to copy, or use the share button.</p>
             </div>
             <input readOnly value={inviteLink}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-green-400 font-mono select-all"

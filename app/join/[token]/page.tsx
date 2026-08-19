@@ -87,7 +87,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 text-center gap-4">
         <p className="text-2xl font-bold">Invalid invite link</p>
-        <p className="text-zinc-500 text-sm">This link may have expired or doesn't exist.</p>
+        <p className="text-zinc-400 text-sm">This link may have expired or doesn't exist.</p>
         <a href="/" className="text-green-400 text-sm underline underline-offset-4">Go to League of Music</a>
       </div>
     );
@@ -104,7 +104,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
           <p className="text-zinc-400 text-sm mt-1.5">
             Join <span className="text-white font-semibold">{leagueName}</span>
           </p>
-          <p className="text-zinc-600 text-xs mt-2 max-w-xs">
+          <p className="text-zinc-400 text-xs mt-2 max-w-xs">
             Submit songs, vote for your favorites, and compete with friends.
           </p>
         </div>
