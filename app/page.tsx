@@ -1214,7 +1214,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 gap-10">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="w-20 h-20 bg-green-500 rounded-3xl flex items-center justify-center p-5 shadow-lg shadow-green-500/20"><IMusic /></div>
+          <div className="w-20 h-20 bg-green-500/12 border border-green-500/25 text-green-400 rounded-3xl flex items-center justify-center p-5"><IMusic /></div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">League of Music</h1>
             <p className="text-zinc-400 text-sm mt-1.5 max-w-xs">Submit songs. Comment. Rank your favorites. Compete with friends.</p>
@@ -1591,7 +1591,7 @@ export default function App() {
                         return next;
                       });
                     }
-                  }} className="w-full py-4 font-bold text-sm rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 text-black hover:from-green-400 hover:to-emerald-400 transition-all active:scale-95 shadow-lg shadow-green-500/20">
+                  }} className="w-full py-4 font-bold text-sm rounded-2xl bg-green-500 text-black hover:bg-green-400 transition-all active:scale-95">
                     🚀 Start Season {(selectedLeague?.current_season ?? 1) + 1}
                   </button>
                 )}
@@ -1917,7 +1917,7 @@ export default function App() {
                   ) : (
                     canVote && Object.keys(myRanks).length > 0 && (
                       <button onClick={lockInVotes}
-                        className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all shadow-xl shadow-green-500/20">
+                        className="w-full py-4 text-sm font-semibold rounded-2xl bg-green-500 text-black active:scale-[.98] transition-all">
                         Lock in votes
                       </button>
                     )

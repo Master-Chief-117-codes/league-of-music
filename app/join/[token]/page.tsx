@@ -96,7 +96,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 gap-10">
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="w-20 h-20 bg-green-500 rounded-3xl flex items-center justify-center shadow-lg shadow-green-500/20 text-4xl">
+        <div className="w-20 h-20 bg-green-500/12 border border-green-500/25 rounded-3xl flex items-center justify-center text-4xl">
           🎵
         </div>
         <div>
