@@ -738,9 +738,21 @@ export default function App() {
     const noDuplicates = selectedLeague?.voting_requirements?.no_duplicates === true;
     if (noDuplicates) {
       const trackId = getSpotifyTrackId(trimmed);
-      if (trackId && leaguePastTrackIds.has(trackId)) {
-        setUrlError("This song has already been submitted in this league.");
-        return;
+      if (trackId) {
+        // Same round: check live submission state rather than the set fetched at
+        // week load, so this stays fresh as other people submit. leaguePastTrackIds
+        // covers earlier rounds only, which never change.
+        const takenThisRound = submissions.some(
+          (s) => (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === trackId
+        );
+        if (takenThisRound) {
+          setUrlError("Someone already picked this song this round. Pick a different one.");
+          return;
+        }
+        if (leaguePastTrackIds.has(trackId)) {
+          setUrlError("This song was already submitted in an earlier round of this league.");
+          return;
+        }
       }
     }
     setIsSubmitting(true);

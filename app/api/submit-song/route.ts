@@ -155,7 +155,7 @@ export async function POST(req: Request) {
   // Verify week is active and accepting submissions
   const { data: week } = await admin
     .from("weeks")
-    .select("id, status, locked, prompt, leagues(name, created_by), sms_5_sent")
+    .select("id, status, locked, prompt, leagues(name, created_by, voting_requirements), sms_5_sent")
     .eq("id", weekId)
     .single();
 
@@ -179,6 +179,49 @@ export async function POST(req: Request) {
     : null;
 
   const finalTrackId = resolvedSpotifyId ?? (!isApple ? getSpotifyTrackId(cleanUrl) : null);
+
+  // Block repeats, when the league has it switched on. This is the authoritative
+  // check — the client-side guard in page.tsx is only for fast feedback and reads
+  // a set that was fetched when the week loaded, so it goes stale the moment
+  // anyone else submits.
+  //
+  // Unlike the client guard, this covers the CURRENT week as well as past ones. A
+  // same-round collision is the common case, and excluding it was why two people
+  // both landed the same Green Day track in one round.
+  //
+  // Apple Music links are only comparable once resolved to a Spotify ID; when
+  // resolution fails there is nothing to compare, so they pass through.
+  // The embedded league arrives as an object for this many-to-one FK, but tolerate
+  // an array so a PostgREST shape change can't silently disable the check.
+  type LeagueReqs = { voting_requirements?: { no_duplicates?: boolean } | null };
+  const leagueRel = (week as unknown as { leagues: LeagueReqs | LeagueReqs[] | null }).leagues;
+  const leagueRow = Array.isArray(leagueRel) ? leagueRel[0] : leagueRel;
+  const noDuplicates = leagueRow?.voting_requirements?.no_duplicates === true;
+
+  if (noDuplicates && finalTrackId) {
+    type DupRow = { week_id: string; spotify_url: string | null; resolved_spotify_id: string | null };
+    const { data: leagueSubs } = await admin
+      .from("song_submissions")
+      .select("week_id, spotify_url, resolved_spotify_id, weeks!inner(league_id)")
+      .eq("weeks.league_id", leagueId);
+
+    const clash = ((leagueSubs ?? []) as unknown as DupRow[]).find(
+      (s) => (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === finalTrackId
+    );
+
+    if (clash) {
+      return NextResponse.json(
+        {
+          error:
+            clash.week_id === weekId
+              ? "Someone already picked this song this round. Pick a different one."
+              : "This song was already submitted in an earlier round of this league.",
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   let meta: { track_name: string; artist_name: string; album_art_url: string } | null = null;
   if (finalTrackId) {
     for (let attempt = 0; attempt < 2 && !meta; attempt++) {
