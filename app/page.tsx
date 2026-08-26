@@ -185,6 +185,7 @@ export default function App() {
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [urlError, setUrlError] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isChangingSong, setIsChangingSong] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaguePastTrackIds, setLeaguePastTrackIds] = useState<Set<string>>(new Set());
 
@@ -742,8 +743,12 @@ export default function App() {
         // Same round: check live submission state rather than the set fetched at
         // week load, so this stays fresh as other people submit. leaguePastTrackIds
         // covers earlier rounds only, which never change.
+        // Skip your own row: replacing your pick, or switching away and back, is
+        // not a collision. Mirrors the authoritative check in the API route.
         const takenThisRound = submissions.some(
-          (s) => (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === trackId
+          (s) =>
+            s.user_id !== session.user.id &&
+            (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === trackId
         );
         if (takenThisRound) {
           setUrlError("Someone already picked this song this round. Pick a different one.");
@@ -769,7 +774,8 @@ export default function App() {
       await loadAllForWeek(week.id);
       setHasSubmitted(true);
       setSpotifyUrl("");
-      toast("Song submitted!", "success");
+      toast(isChangingSong ? "Song changed!" : "Song submitted!", "success");
+      setIsChangingSong(false);
     }
     setIsSubmitting(false);
   };
@@ -1827,11 +1833,28 @@ export default function App() {
 
             {/* Song submission */}
             {week && !isPendingPrompt && !submissionsLocked && (
-              hasSubmitted ? (
-                <div className="flex items-center gap-2.5 px-4 py-3.5 bg-green-500/8 border border-green-500/20 rounded-2xl">
-                  <span className="text-green-500"><ICheck /></span>
-                  <span className="text-green-400 text-sm font-medium">Song submitted!</span>
-                </div>
+              hasSubmitted && !isChangingSong ? (
+                (() => {
+                  const mine = submissions.find((s: { user_id: string }) => s.user_id === session?.user?.id);
+                  return (
+                    <div className="flex items-center gap-2.5 px-4 py-3.5 bg-green-500/8 border border-green-500/20 rounded-2xl">
+                      <span className="text-green-500 flex-shrink-0"><ICheck /></span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-green-400 text-sm font-medium">Song submitted!</span>
+                        {mine?.track_name && (
+                          <span className="text-zinc-400 text-xs truncate">
+                            {mine.track_name}{mine.artist_name ? ` · ${mine.artist_name}` : ""}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => { setIsChangingSong(true); setSpotifyUrl(""); setUrlError(""); }}
+                        className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors">
+                        Change song
+                      </button>
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex gap-2">
@@ -1839,6 +1862,13 @@ export default function App() {
                     <button onClick={submitSong} disabled={!spotifyUrl.trim() || isSubmitting} className="btn-primary px-5 flex-shrink-0">{isSubmitting ? "…" : "Submit"}</button>
                   </div>
                   {urlError && <p className="text-xs text-red-400 px-1">{urlError}</p>}
+                  {isChangingSong && (
+                    <button
+                      onClick={() => { setIsChangingSong(false); setSpotifyUrl(""); setUrlError(""); }}
+                      className="text-xs text-zinc-400 hover:text-white transition-colors px-1">
+                      Cancel
+                    </button>
+                  )}
                 </div>
               )
             )}

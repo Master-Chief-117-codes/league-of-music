@@ -163,7 +163,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Submissions are closed" }, { status: 400 });
   }
 
-  // Prevent double submission
+  // A second submission replaces the first rather than being rejected. The window
+  // is "until the round locks", and fireAllSubmitted() locks the moment the last
+  // member submits, so in practice you can swap until everyone is in.
   const { data: existing } = await admin
     .from("song_submissions")
     .select("id")
@@ -171,7 +173,23 @@ export async function POST(req: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (existing) return NextResponse.json({ error: "Already submitted" }, { status: 400 });
+  // Votes, comments, reactions and guesses all hang off submission_id and cascade
+  // on delete. Replacing a song that already has them would silently re-point real
+  // votes at a track nobody voted for, so refuse instead. Normally unreachable —
+  // that content only appears after the round locks — but at least one live week
+  // has carried votes while still unlocked, so this is not merely theoretical.
+  if (existing) {
+    const [{ count: voteCount }, { count: commentCount }] = await Promise.all([
+      admin.from("song_votes").select("id", { count: "exact", head: true }).eq("submission_id", existing.id),
+      admin.from("song_comments").select("id", { count: "exact", head: true }).eq("submission_id", existing.id),
+    ]);
+    if ((voteCount ?? 0) > 0 || (commentCount ?? 0) > 0) {
+      return NextResponse.json(
+        { error: "Your song already has votes or comments, so it can't be swapped." },
+        { status: 409 }
+      );
+    }
+  }
 
   const isApple = isAppleMusicUrl(cleanUrl);
   const resolvedSpotifyId = isApple
@@ -199,15 +217,21 @@ export async function POST(req: Request) {
   const noDuplicates = leagueRow?.voting_requirements?.no_duplicates === true;
 
   if (noDuplicates && finalTrackId) {
-    type DupRow = { week_id: string; spotify_url: string | null; resolved_spotify_id: string | null };
+    type DupRow = { week_id: string; user_id: string; spotify_url: string | null; resolved_spotify_id: string | null };
     const { data: leagueSubs } = await admin
       .from("song_submissions")
-      .select("week_id, spotify_url, resolved_spotify_id, weeks!inner(league_id)")
+      .select("week_id, user_id, spotify_url, resolved_spotify_id, weeks!inner(league_id)")
       .eq("weeks.league_id", leagueId);
 
-    const clash = ((leagueSubs ?? []) as unknown as DupRow[]).find(
-      (s) => (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === finalTrackId
-    );
+    // Your own pick for the current round is what you are replacing, so it must not
+    // count as a clash - otherwise switching X -> Y -> X reports that you collided
+    // with yourself. Your picks from EARLIER rounds still block, since re-using a
+    // song across rounds is exactly what no_duplicates exists to prevent.
+    const clash = ((leagueSubs ?? []) as unknown as DupRow[])
+      .filter((s) => !(s.week_id === weekId && s.user_id === user.id))
+      .find(
+        (s) => (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === finalTrackId
+      );
 
     if (clash) {
       return NextResponse.json(
@@ -230,17 +254,25 @@ export async function POST(req: Request) {
     }
   }
 
-  const { error } = await admin.from("song_submissions").insert({
-    week_id: weekId,
-    user_id: user.id,
+  // Spread-with-fallback would be wrong on the replace path: an absent key leaves
+  // the PREVIOUS song's value in place, so swapping A -> B while the Spotify lookup
+  // fails would show B's link under A's title and artwork. Name every column.
+  const payload = {
     spotify_url: cleanUrl,
-    ...(resolvedSpotifyId ? { resolved_spotify_id: resolvedSpotifyId } : {}),
-    ...(meta ?? {}),
-  });
+    resolved_spotify_id: resolvedSpotifyId ?? null,
+    track_name: meta?.track_name ?? null,
+    artist_name: meta?.artist_name ?? null,
+    album_art_url: meta?.album_art_url ?? null,
+  };
+
+  const { error } = existing
+    ? await admin.from("song_submissions").update(payload).eq("id", existing.id)
+    : await admin.from("song_submissions").insert({ week_id: weekId, user_id: user.id, ...payload });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Check if all league members have now submitted (#5)
-  if (!(week as any).sms_5_sent) {
+  // Only a NEW submitter can change whether everyone is now in; a swap leaves the
+  // set of people who have submitted untouched.
+  if (!existing && !(week as any).sms_5_sent) {
     const [{ data: members }, { data: submissions }] = await Promise.all([
       admin.from("league_members").select("user_id").eq("league_id", leagueId),
       admin.from("song_submissions").select("user_id").eq("week_id", weekId),
