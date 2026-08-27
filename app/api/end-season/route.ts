@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const { leagueId } = await req.json();
   if (!leagueId) return NextResponse.json({ error: "Missing leagueId" }, { status: 400 });
 
-  const { data: league } = await admin.from("leagues").select("created_by, current_season").eq("id", leagueId).single();
+  const { data: league } = await admin.from("leagues").select("created_by, current_season, season_theme").eq("id", leagueId).single();
   if (!league || league.created_by !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { data: members } = await admin.from("league_members").select("user_id, wins, points").eq("league_id", leagueId);
@@ -26,7 +26,12 @@ export async function POST(req: Request) {
     return { user_id: m.user_id, name: p?.name ?? "Unknown", avatar_url: p?.avatar_url ?? null, wins: m.wins ?? 0, points: m.points ?? 0 };
   });
 
-  await admin.from("season_snapshots").insert({ league_id: leagueId, season_number: league.current_season ?? 1, results });
+  await admin.from("season_snapshots").insert({
+    league_id: leagueId,
+    season_number: league.current_season ?? 1,
+    season_theme: league.season_theme ?? null,
+    results,
+  });
   await admin.from("leagues").update({ season_over: true }).eq("id", leagueId);
 
   return NextResponse.json({ ok: true });

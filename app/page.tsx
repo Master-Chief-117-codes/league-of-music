@@ -273,6 +273,9 @@ export default function App() {
   const [newRoundPick, setNewRoundPick] = useState<string | null>(null); // null = not expanded, "random" or userId
   const [renamingLeague, setRenamingLeague] = useState(false);
   const [renameInput, setRenameInput] = useState("");
+  const [editingTheme, setEditingTheme] = useState(false);
+  const [themeInput, setThemeInput] = useState("");
+  const [newSeasonTheme, setNewSeasonTheme] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const userIdRef = useRef("");
@@ -396,7 +399,7 @@ export default function App() {
   useEffect(() => {
     if (!session || needsProfile) return;
     Promise.all([
-      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements, season_over, current_season)").eq("user_id", session.user.id),
+      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements, season_over, current_season, season_theme)").eq("user_id", session.user.id),
       supabase.from("league_requests").select("id, name, status, created_at").eq("requested_by", session.user.id).eq("status", "pending"),
     ]).then(([{ data: memberData }, { data: reqData }]) => {
       setMyLeagues((memberData || []).map((m: any) => m.leagues).filter(Boolean));
@@ -1157,6 +1160,23 @@ export default function App() {
     toast("League renamed!", "success");
   };
 
+  // A blank save is meaningful here: it clears the theme and hides the banner,
+  // so this deliberately has no non-empty guard.
+  const saveTheme = async () => {
+    if (!selectedLeagueId || !session) return;
+    const trimmed = themeInput.trim().slice(0, 80);
+    const res = await fetch("/api/update-league-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ leagueId: selectedLeagueId, seasonTheme: trimmed }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) { toast(json.error || "Failed to save theme", "error"); return; }
+    setMyLeagues((prev) => prev.map((l) => l.id === selectedLeagueId ? { ...l, season_theme: trimmed || null } : l));
+    setEditingTheme(false);
+    toast(trimmed ? "Season theme saved!" : "Season theme cleared", "success");
+  };
+
   const saveVotingReqs = async (patch: Record<string, unknown>) => {
     if (!selectedLeagueId || !session) return;
     const current = selectedLeague?.voting_requirements ?? {};
@@ -1585,21 +1605,25 @@ export default function App() {
               {/* Start new season / back */}
               <div className="space-y-3 pb-8">
                 {isHost && (
-                  <button onClick={async () => {
-                    if (!confirm("Start a new season? Wins and points will reset to 0.")) return;
-                    const res = await fetch("/api/start-season", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ leagueId: selectedLeagueId }) });
-                    if (res.ok) {
-                      const { season } = await res.json();
-                      setMyLeagues((prev: any[]) => prev.map((l) => l.id === selectedLeagueId ? { ...l, season_over: false, current_season: season } : l));
-                      setProfilesMap((prev) => {
-                        const next = { ...prev };
-                        Object.keys(next).forEach((id) => { next[id] = { ...next[id], wins: 0, points: 0 }; });
-                        return next;
-                      });
-                    }
-                  }} className="w-full py-4 font-bold text-sm rounded-2xl bg-green-500 text-black hover:bg-green-400 transition-all active:scale-95">
-                    🚀 Start Season {(selectedLeague?.current_season ?? 1) + 1}
-                  </button>
+                  <div className="space-y-2">
+                    <input value={newSeasonTheme} onChange={(e) => setNewSeasonTheme(e.target.value)} placeholder="Season theme (optional)" maxLength={80} className="input w-full text-sm" />
+                    <button onClick={async () => {
+                      if (!confirm("Start a new season? Wins and points will reset to 0.")) return;
+                      const res = await fetch("/api/start-season", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ leagueId: selectedLeagueId, seasonTheme: newSeasonTheme.trim() }) });
+                      if (res.ok) {
+                        const { season, seasonTheme } = await res.json();
+                        setMyLeagues((prev: any[]) => prev.map((l) => l.id === selectedLeagueId ? { ...l, season_over: false, current_season: season, season_theme: seasonTheme ?? null } : l));
+                        setProfilesMap((prev) => {
+                          const next = { ...prev };
+                          Object.keys(next).forEach((id) => { next[id] = { ...next[id], wins: 0, points: 0 }; });
+                          return next;
+                        });
+                        setNewSeasonTheme("");
+                      }
+                    }} className="w-full py-4 font-bold text-sm rounded-2xl bg-green-500 text-black hover:bg-green-400 transition-all active:scale-95">
+                      🚀 Start Season {(selectedLeague?.current_season ?? 1) + 1}
+                    </button>
+                  </div>
                 )}
                 <button onClick={() => setSelectedLeagueId(null)} className="w-full py-3 text-xs text-zinc-400 hover:text-white transition-colors">
                   ← Back to leagues
@@ -1641,6 +1665,17 @@ export default function App() {
         {/* ── ROUND TAB ── */}
         {activeTab === "current" && (
           <div className="space-y-4">
+
+            {/* Season theme — the frame every round of this season sits inside.
+                Kept lighter than the prompt card so it never competes with it. */}
+            {selectedLeague?.season_theme && (
+              <div className="flex items-baseline gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5">
+                <p className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+                  S{selectedLeague.current_season ?? 1} Theme
+                </p>
+                <p className="min-w-0 text-sm font-medium leading-snug text-green-400">{selectedLeague.season_theme}</p>
+              </div>
+            )}
 
             {/* Prompt card */}
             {week && (
@@ -1752,6 +1787,11 @@ export default function App() {
             {/* Prompt submission form */}
             {week && isPendingPrompt && (isPromptAuthor || isHost) && (
               <div className="space-y-1.5">
+                {selectedLeague?.season_theme && (
+                  <p className="text-xs text-zinc-400 px-1">
+                    Season theme: <span className="font-medium text-green-400">{selectedLeague.season_theme}</span> — your prompt should fit it.
+                  </p>
+                )}
                 {isHost && !isPromptAuthor && (
                   <p className="text-xs text-amber-400 px-1">{promptDeadlinePassed ? "Deadline passed —" : "As host, you can"} submit a prompt on behalf of {promptAuthorName}.</p>
                 )}
@@ -2468,6 +2508,18 @@ export default function App() {
                         <button onClick={() => { setRenameInput(selectedLeague?.name ?? ""); setRenamingLeague(true); }}
                           className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white transition-colors">
                           Rename League
+                        </button>
+                      )}
+                      {editingTheme ? (
+                        <div className="flex gap-2">
+                          <input value={themeInput} onChange={(e) => setThemeInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveTheme()} placeholder="e.g. Songs that mention a city" maxLength={80} className="input flex-1 min-w-0 text-sm" autoFocus />
+                          <button onClick={saveTheme} className="btn-primary px-4 text-xs">Save</button>
+                          <button onClick={() => setEditingTheme(false)} className="px-3 text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setThemeInput(selectedLeague?.season_theme ?? ""); setEditingTheme(true); }}
+                          className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white transition-colors">
+                          {selectedLeague?.season_theme ? "Edit Season Theme" : "Set Season Theme"}
                         </button>
                       )}
                       <div className="grid grid-cols-2 gap-2">
