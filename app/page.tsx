@@ -53,6 +53,9 @@ type ToastKind = "success" | "error" | "info";
 interface Toast { id: string; msg: string; kind: ToastKind }
 
 /* ─── Icons ─── */
+// Only the fields the archive UI reads; leagues carry more, hence the index signature.
+type LeagueRow = { id: string; name: string; created_by: string; archived_at?: string | null; [key: string]: unknown };
+
 function IMusic() {
   return <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z" /></svg>;
 }
@@ -186,6 +189,9 @@ export default function App() {
   const [urlError, setUrlError] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isChangingSong, setIsChangingSong] = useState(false);
+  const [archivedLeagues, setArchivedLeagues] = useState<LeagueRow[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaguePastTrackIds, setLeaguePastTrackIds] = useState<Set<string>>(new Set());
 
@@ -399,10 +405,20 @@ export default function App() {
   useEffect(() => {
     if (!session || needsProfile) return;
     Promise.all([
-      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements, season_over, current_season, season_theme)").eq("user_id", session.user.id),
+      supabase.from("league_members").select("league_id, leagues(id, name, created_by, voting_requirements, season_over, current_season, season_theme, archived_at)").eq("user_id", session.user.id),
       supabase.from("league_requests").select("id, name, status, created_at").eq("requested_by", session.user.id).eq("status", "pending"),
     ]).then(([{ data: memberData }, { data: reqData }]) => {
-      setMyLeagues((memberData || []).map((m: any) => m.leagues).filter(Boolean));
+      // The client infers this to-one relation as an array; it is a single row at runtime.
+      const all = (memberData || [])
+        .map((m) => m.leagues as unknown as LeagueRow | null)
+        .filter((l): l is LeagueRow => !!l);
+      setMyLeagues(all.filter((l) => !l.archived_at));
+      // Only a league's host gets the Archived list, since only the host can restore it.
+      setArchivedLeagues(all.filter((l) => l.archived_at && l.created_by === session.user.id));
+      // A remembered or linked league may have been archived since: don't reopen it.
+      const archivedIds = new Set(all.filter((l) => l.archived_at).map((l) => l.id));
+      setSelectedLeagueId((cur) => (cur && archivedIds.has(cur) ? null : cur));
+      if (archivedIds.has(localStorage.getItem("last_league") ?? "")) localStorage.removeItem("last_league");
       setPendingRequests(reqData || []);
     });
   }, [session, needsProfile]);
@@ -1190,6 +1206,31 @@ export default function App() {
     setMyLeagues((prev: any[]) => prev.map((l) => l.id === selectedLeagueId ? { ...l, voting_requirements: updated } : l));
   };
 
+  const setLeagueArchived = async (leagueId: string, archived: boolean) => {
+    if (!session) return;
+    const res = await fetch("/api/archive-league", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ leagueId, archived }),
+    });
+    if (!res.ok) { toast(archived ? "Failed to archive league" : "Failed to restore league", "error"); return; }
+    if (archived) {
+      const league = myLeagues.find((l) => l.id === leagueId);
+      setMyLeagues((prev) => prev.filter((l) => l.id !== leagueId));
+      if (league) setArchivedLeagues((prev) => [...prev, { ...league, archived_at: new Date().toISOString() }]);
+      setConfirmingArchive(false);
+      setSelectedLeagueId(null);
+      setWentBack(true);
+      localStorage.removeItem("last_league");
+      toast("League archived. Restore it from Archived on the league list.", "success");
+    } else {
+      const league = archivedLeagues.find((l) => l.id === leagueId);
+      setArchivedLeagues((prev) => prev.filter((l) => l.id !== leagueId));
+      if (league) setMyLeagues((prev) => [...prev, { ...league, archived_at: null }]);
+      toast("League restored!", "success");
+    }
+  };
+
   const transferHost = async (newHostId: string) => {
     if (!selectedLeagueId || !session) return;
     const res = await fetch("/api/transfer-host", {
@@ -1436,6 +1477,23 @@ export default function App() {
                 <div key={r.id} className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800/50 rounded-2xl px-4 py-3.5 opacity-70">
                   <p className="text-sm font-semibold text-zinc-400">{r.name}</p>
                   <span className="text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">Pending</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {archivedLeagues.length > 0 && (
+            <div className="space-y-2">
+              <button onClick={() => setShowArchived((v) => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-widest hover:text-white transition-colors">
+                Archived ({archivedLeagues.length}) <span>{showArchived ? "▾" : "▸"}</span>
+              </button>
+              {showArchived && archivedLeagues.map((league) => (
+                <div key={league.id} className="flex items-center justify-between gap-3 bg-zinc-950/60 border border-zinc-800/50 rounded-2xl px-4 py-3.5">
+                  <p className="text-sm font-semibold text-zinc-400 truncate">{league.name}</p>
+                  <button onClick={() => setLeagueArchived(league.id, false)}
+                    className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors">
+                    Unarchive
+                  </button>
                 </div>
               ))}
             </div>
@@ -2555,6 +2613,22 @@ export default function App() {
                         className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-amber-500/40 hover:text-amber-400 transition-colors">
                         Transfer Ownership
                       </button>
+                      {confirmingArchive ? (
+                        <div className="space-y-2 rounded-xl border border-zinc-800 p-3">
+                          <p className="text-xs text-zinc-400">Hide this league for everyone? Nothing is deleted, and you can restore it from Archived on the league list.</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => selectedLeagueId && setLeagueArchived(selectedLeagueId, true)}
+                              className="flex-1 py-2 text-xs font-semibold rounded-lg bg-green-500 text-black active:scale-95 transition-all">Archive</button>
+                            <button onClick={() => setConfirmingArchive(false)}
+                              className="px-3 text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmingArchive(true)}
+                          className="w-full py-3 text-xs font-semibold rounded-xl border border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white transition-colors">
+                          Archive League
+                        </button>
+                      )}
                     </div>
 
                     {/* Duplicate songs */}
