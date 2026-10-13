@@ -56,6 +56,23 @@ interface Toast { id: string; msg: string; kind: ToastKind }
 // Only the fields the archive UI reads; leagues carry more, hence the index signature.
 type LeagueRow = { id: string; name: string; created_by: string; archived_at?: string | null; [key: string]: unknown };
 
+// Supabase caps every request at 1000 rows and drops the rest without an error. A table
+// that has outgrown that has to be paged: an unpaged history query used to lose every
+// comment past the oldest thousand, so recent rounds showed reactions but no comments.
+const PAGE_SIZE = 1000;
+async function fetchAllRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error || !data) { console.error("fetchAllRows:", error?.message); break; }
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 function IMusic() {
   return <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z" /></svg>;
 }
@@ -695,13 +712,18 @@ export default function App() {
   const loadHistory = useCallback(async () => {
     if (!selectedLeagueId) return;
     setLoadingHistory(true);
-    const [{ data: weeks }, { data: songs }, { data: votes }, { data: rxData }, { data: cmtData }, { data: lockData }] = await Promise.all([
-      supabase.from("weeks").select("*").eq("league_id", selectedLeagueId).order("created_at", { ascending: false }),
-      supabase.from("song_submissions").select("*"),
-      supabase.from("song_votes").select("submission_id, rank"),
-      supabase.from("song_reactions").select("submission_id, emoji"),
-      supabase.from("song_comments").select("submission_id, user_id, text, media_url").order("created_at", { ascending: true }),
-      supabase.from("vote_locks").select("week_id, user_id"),
+    const { data: weeks } = await supabase.from("weeks").select("*").eq("league_id", selectedLeagueId).order("created_at", { ascending: false });
+    const weekIds = (weeks || []).map((w) => w.id as string);
+    if (!weekIds.length) { setHistory([]); setLoadingHistory(false); return; }
+
+    // Only this league's rounds, and every page of them: the tables are far past the
+    // 1000-row request cap. Each order() ends on a unique column so paging is stable.
+    const [songs, votes, rxData, cmtData, lockData] = await Promise.all([
+      fetchAllRows((from, to) => supabase.from("song_submissions").select("*").in("week_id", weekIds).order("created_at", { ascending: true }).order("id").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("song_votes").select("submission_id, rank").in("week_id", weekIds).order("id").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("song_reactions").select("submission_id, emoji").in("week_id", weekIds).order("id").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("song_comments").select("submission_id, user_id, text, media_url").in("week_id", weekIds).order("created_at", { ascending: true }).order("id").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("vote_locks").select("week_id, user_id").in("week_id", weekIds).order("week_id").order("user_id").range(from, to)),
     ]);
 
     // Weighted scores for history
