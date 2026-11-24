@@ -155,7 +155,7 @@ export async function POST(req: Request) {
   // Verify week is active and accepting submissions
   const { data: week } = await admin
     .from("weeks")
-    .select("id, status, locked, prompt, leagues(name, created_by, voting_requirements), sms_5_sent")
+    .select("id, status, locked, prompt, is_special, leagues(name, created_by, voting_requirements), sms_5_sent")
     .eq("id", weekId)
     .single();
 
@@ -217,11 +217,24 @@ export async function POST(req: Request) {
   const noDuplicates = leagueRow?.voting_requirements?.no_duplicates === true;
 
   if (noDuplicates && finalTrackId) {
-    type DupRow = { week_id: string; user_id: string; spotify_url: string | null; resolved_spotify_id: string | null };
+    type WeekFlag = { is_special: boolean | null };
+    type DupRow = {
+      week_id: string; user_id: string; spotify_url: string | null; resolved_spotify_id: string | null;
+      weeks: WeekFlag | WeekFlag[] | null;
+    };
     const { data: leagueSubs } = await admin
       .from("song_submissions")
-      .select("week_id, user_id, spotify_url, resolved_spotify_id, weeks!inner(league_id)")
+      .select("week_id, user_id, spotify_url, resolved_spotify_id, weeks!inner(league_id, is_special)")
       .eq("weeks.league_id", leagueId);
+
+    // Special rounds sit outside the league-wide rule in both directions: their songs
+    // never block a regular round, and a special round only blocks repeats within itself.
+    const isSpecialRound = (week as unknown as { is_special?: boolean }).is_special === true;
+    const inScope = (s: DupRow) => {
+      if (isSpecialRound) return s.week_id === weekId;
+      const w = Array.isArray(s.weeks) ? s.weeks[0] : s.weeks;
+      return w?.is_special !== true;
+    };
 
     // Your own pick for the current round is what you are replacing, so it must not
     // count as a clash - otherwise switching X -> Y -> X reports that you collided
@@ -229,6 +242,7 @@ export async function POST(req: Request) {
     // song across rounds is exactly what no_duplicates exists to prevent.
     const clash = ((leagueSubs ?? []) as unknown as DupRow[])
       .filter((s) => !(s.week_id === weekId && s.user_id === user.id))
+      .filter(inScope)
       .find(
         (s) => (s.resolved_spotify_id ?? getSpotifyTrackId(s.spotify_url ?? "")) === finalTrackId
       );

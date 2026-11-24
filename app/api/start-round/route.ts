@@ -26,9 +26,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not the host" }, { status: 403 });
   }
 
+  // A special round or a paused round is still open. A regular round started now would
+  // become the newest and hide it, with no way back, so finish that first.
+  const { data: open } = await admin
+    .from("weeks")
+    .select("id")
+    .eq("league_id", leagueId)
+    .or("paused_at.not.is.null,and(is_special.eq.true,status.neq.done)")
+    .limit(1);
+  if (open?.length) {
+    return NextResponse.json(
+      { error: "Finish the special round and resume the paused round before starting a new one." },
+      { status: 409 }
+    );
+  }
+
   const [{ data: leagueMembers }, { data: pastWeeks }] = await Promise.all([
     admin.from("league_members").select("user_id").eq("league_id", leagueId),
-    admin.from("weeks").select("prompt_author_id").eq("league_id", leagueId).not("prompt_author_id", "is", null),
+    // Special rounds are written by the host, so they must not use up anyone's turn.
+    admin.from("weeks").select("prompt_author_id").eq("league_id", leagueId).eq("is_special", false).not("prompt_author_id", "is", null),
   ]);
 
   if (!leagueMembers?.length) {

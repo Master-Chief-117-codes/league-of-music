@@ -209,6 +209,12 @@ export default function App() {
   const [archivedLeagues, setArchivedLeagues] = useState<LeagueRow[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [roundReloadKey, setRoundReloadKey] = useState(0);
+  const [pausedWeek, setPausedWeek] = useState<{ id: string; prompt: string | null } | null>(null);
+  const [showSpecialForm, setShowSpecialForm] = useState(false);
+  const [specialPrompt, setSpecialPrompt] = useState("");
+  const [specialNoVoting, setSpecialNoVoting] = useState(false);
+  const [isStartingSpecial, setIsStartingSpecial] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaguePastTrackIds, setLeaguePastTrackIds] = useState<Set<string>>(new Set());
 
@@ -635,15 +641,27 @@ export default function App() {
 
       const { data: weekData } = await supabase
         .from("weeks").select("*").eq("league_id", selectedLeagueId)
+        // A paused round waits underneath a special one, and a wrapped-up special round is
+        // out of the running: the current round is the newest of whatever is left.
+        .is("paused_at", null).neq("status", "done")
         .order("created_at", { ascending: false }).limit(1).single();
       if (!weekData) return;
       setWeek(weekData);
       setSubmissionsLocked(weekData.locked || false);
       setIdentitiesRevealed(weekData.revealed || false);
+      if (weekData.is_special) {
+        const { data: paused } = await supabase.from("weeks").select("id, prompt")
+          .eq("league_id", selectedLeagueId).not("paused_at", "is", null).limit(1).maybeSingle();
+        setPausedWeek(paused ?? null);
+      } else {
+        setPausedWeek(null);
+      }
 
       // Load past Spotify track IDs for duplicate detection
-      const { data: pastWeeks } = await supabase.from("weeks").select("id").eq("league_id", selectedLeagueId).neq("id", weekData.id);
-      const pastWeekIds = (pastWeeks || []).map((w: any) => w.id);
+      // Songs from special rounds neither block nor are blocked by the league-wide no-repeats rule.
+      const { data: pastWeeks } = await supabase.from("weeks").select("id").eq("league_id", selectedLeagueId).eq("is_special", false).neq("id", weekData.id);
+      const pastWeekIds = weekData.is_special ? [] : (pastWeeks || []).map((w: any) => w.id);
+      setLeaguePastTrackIds(new Set());
       if (pastWeekIds.length > 0) {
         const { data: pastSubs } = await supabase.from("song_submissions").select("spotify_url, resolved_spotify_id").in("week_id", pastWeekIds);
         const trackIds = new Set<string>();
@@ -657,7 +675,7 @@ export default function App() {
       await loadAllForWeek(weekData.id);
     };
     init();
-  }, [session, selectedLeagueId, loadAllForWeek]);
+  }, [session, selectedLeagueId, loadAllForWeek, roundReloadKey]);
 
   /* ── Realtime ── */
   useEffect(() => {
@@ -669,6 +687,9 @@ export default function App() {
         setWeek((prev: any) => ({ ...prev, ...payload.new }));
         setSubmissionsLocked(payload.new.locked || false);
         setIdentitiesRevealed(payload.new.revealed || false);
+        // This round was just paused (a special round took over) or wrapped up (the special
+        // round ended), so which round is current has changed.
+        if (payload.new.paused_at || payload.new.status === "done") setRoundReloadKey((k) => k + 1);
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "song_submissions", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
       .on("postgres_changes", { event: "*", schema: "public", table: "song_votes", filter: `week_id=eq.${wid}` }, () => loadAllForWeek(wid))
@@ -755,7 +776,8 @@ export default function App() {
       sbw[s.week_id].push({ ...s, score: vm[s.id] || 0, reactions: rxBySub[s.id] || {}, commentCount: songComments.length, comments: songComments });
     });
 
-    setHistory((weeks || []).map((w: any) => {
+    // A paused round is waiting to be resumed, not finished, so it stays out of the history.
+    setHistory((weeks || []).filter((w) => !w.paused_at).map((w: any) => {
       const lockedSet = lockedByWeek[w.id] || new Set();
       const ws = (sbw[w.id] || []).map((s: any) => ({
         ...s,
@@ -970,6 +992,30 @@ export default function App() {
     const body = await res.json();
     if (!res.ok) { toast(body.error || "Failed to start round", "error"); return; }
     setNewRoundPick(null);
+    window.location.reload();
+  };
+
+  const startSpecialRound = async () => {
+    if (!selectedLeagueId || !session || !specialPrompt.trim() || isStartingSpecial) return;
+    setIsStartingSpecial(true);
+    const res = await fetch("/api/start-special-round", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ leagueId: selectedLeagueId, prompt: specialPrompt.trim(), noVoting: specialNoVoting }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { setIsStartingSpecial(false); toast(body.error || "Failed to start the special round", "error"); return; }
+    window.location.reload();
+  };
+
+  const endSpecialRound = async () => {
+    if (!selectedLeagueId || !session) return;
+    const res = await fetch("/api/end-special-round", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ leagueId: selectedLeagueId }),
+    });
+    if (!res.ok) { toast("Failed to resume the round", "error"); return; }
     window.location.reload();
   };
 
@@ -1781,6 +1827,11 @@ export default function App() {
                   </p>
                 ) : (
                   <>
+                    {week.is_special && (
+                      <p className="text-xs font-semibold text-purple-300 uppercase tracking-widest mb-1">
+                        Special round · no points{week.no_voting ? " · just sharing, no voting" : ""}
+                      </p>
+                    )}
                     <p className="text-base font-semibold leading-snug">{week.prompt}</p>
                     {identitiesRevealed && week.host_note && (
                       <p className="text-sm text-amber-300/80 italic mt-1">💬 {week.host_note}</p>
@@ -2030,7 +2081,7 @@ export default function App() {
               {week && isPendingPrompt && (
                 <div className="py-12 text-center"><p className="text-zinc-400 text-sm">Round starts once the prompt is submitted.</p></div>
               )}
-              {submissionsLocked && !identitiesRevealed && (
+              {submissionsLocked && !identitiesRevealed && !week?.no_voting && (
                 <div className="space-y-1.5">
                   {voteCountdown && (
                     <div className={`flex items-center justify-between px-4 py-3 rounded-2xl border ${voteCountdown === "Time's up!" ? "border-red-500/30 bg-red-500/5" : "border-zinc-800/60 bg-zinc-950"}`}>
@@ -2078,7 +2129,7 @@ export default function App() {
               {identitiesRevealed && (() => {
                 const submittedIds = new Set(submissions.map((s: any) => s.user_id));
                 const nonSubmitters = Object.values(profilesMap).filter((p: any) => !submittedIds.has(p.id));
-                const nonVoters = Object.values(profilesMap).filter((p: any) => !voteLocks.has(p.id));
+                const nonVoters = week?.no_voting ? [] : Object.values(profilesMap).filter((p: any) => !voteLocks.has(p.id));
                 if (nonSubmitters.length === 0 && nonVoters.length === 0) return null;
                 const firstName = (p: any) => p.name ?? "Player";
                 return (
@@ -2260,7 +2311,7 @@ export default function App() {
                       {isOwnSong ? (
                         <span className="text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full">Your song</span>
                       ) : !identitiesRevealed ? (
-                        canVote ? (
+                        week?.no_voting ? null : canVote ? (
                           <div className="flex gap-1.5">
                             {(showFourRanks ? [1, 2, 3, 4] as const : [1, 2, 3] as const).map((r) => {
                               const selected = myRanks[song.id] === r;
@@ -2280,7 +2331,7 @@ export default function App() {
                           <span className="text-xs text-zinc-400 italic">{requireReactions && !allReacted ? "react to all songs to vote" : `comment on ${minComments - myTotalComments} more song${minComments - myTotalComments === 1 ? "" : "s"} to vote`}</span>
                         )
                       ) : (
-                        myRanks[song.id]
+                        week?.no_voting ? null : myRanks[song.id]
                           ? <span className="text-xs text-zinc-400">you ranked #{myRanks[song.id]}</span>
                           : <span className="text-xs text-zinc-500">—</span>
                       )}
@@ -2322,7 +2373,7 @@ export default function App() {
                     </button>
 
                     {/* Guess who — available once voting is unlocked, before reveal */}
-                    {!identitiesRevealed && !isOwnSong && canVote && otherPlayers.length > 0 && (
+                    {!identitiesRevealed && !isOwnSong && (canVote || week?.no_voting) && otherPlayers.length > 0 && (
                       <div className="px-4 pb-3 border-t border-zinc-800/40 pt-3">
                         <p className="text-xs text-zinc-400 font-medium mb-2">Who do you think submitted this?</p>
                         <div className="flex gap-1.5 flex-wrap">
@@ -2507,9 +2558,14 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={revealIdentities} disabled={!week || !submissionsLocked || identitiesRevealed}
                           className="py-3 text-xs font-semibold rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
-                          Reveal Identities & Votes
+                          {week?.no_voting ? "Reveal Identities" : "Reveal Identities & Votes"}
                         </button>
-                        {newRoundPick === null ? (
+                        {week?.is_special ? (
+                          <button onClick={endSpecialRound} disabled={!identitiesRevealed}
+                            className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
+                            {pausedWeek ? "Resume Paused Round" : "Finish Special Round"}
+                          </button>
+                        ) : newRoundPick === null ? (
                           <button onClick={() => setNewRoundPick("random")} disabled={isPendingPrompt}
                             className="py-3 text-xs font-semibold rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 hover:bg-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-95">
                             New Round
@@ -2542,6 +2598,38 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                      {!week?.is_special && !selectedLeague?.season_over && (
+                        showSpecialForm ? (
+                          <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+                            <p className="text-xs text-zinc-400 uppercase tracking-widest">Special round</p>
+                            <p className="text-xs text-zinc-400">
+                              Takes over for everyone. The current round is paused and picks up where it left off when you resume it. No league points.
+                            </p>
+                            <textarea value={specialPrompt} onChange={(e) => setSpecialPrompt(e.target.value)}
+                              rows={4} maxLength={2000} placeholder="Write the prompt…"
+                              className="input resize-none" />
+                            <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                              <input type="checkbox" checked={specialNoVoting} onChange={(e) => setSpecialNoVoting(e.target.checked)} />
+                              Just share songs, no voting
+                            </label>
+                            <div className="flex gap-2 pt-1">
+                              <button onClick={() => { setShowSpecialForm(false); setSpecialPrompt(""); setSpecialNoVoting(false); }}
+                                className="flex-1 py-2 text-xs rounded-lg border border-zinc-700 text-zinc-400 hover:border-zinc-500 transition-colors">
+                                Cancel
+                              </button>
+                              <button onClick={startSpecialRound} disabled={!specialPrompt.trim() || isStartingSpecial}
+                                className="flex-1 py-2 text-xs font-semibold rounded-lg bg-green-500 text-black disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all">
+                                {isStartingSpecial ? "Starting…" : "Start"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => setShowSpecialForm(true)}
+                            className="w-full py-3 text-xs font-semibold rounded-xl border border-purple-500/30 text-purple-300 hover:bg-purple-500/10 transition-colors">
+                            Start Special Round
+                          </button>
+                        )
+                      )}
                     </div>
 
                     {/* Notify */}
@@ -2709,7 +2797,7 @@ export default function App() {
                       );
                     })()}
                     {/* End Season */}
-                    {identitiesRevealed && !selectedLeague?.season_over && (
+                    {identitiesRevealed && !selectedLeague?.season_over && !week?.is_special && (
                       <div className="space-y-2 pt-2 border-t border-zinc-800">
                         <p className="text-xs text-zinc-400 uppercase tracking-widest">Season</p>
                         <button onClick={async () => {
@@ -2769,15 +2857,17 @@ export default function App() {
               </div>
             ) : history.length === 0 ? (
               <p className="text-zinc-400 text-sm py-10 text-center">No rounds yet.</p>
-            ) : history.filter((w: any) => w.id !== week?.id).map((w: any, i: number) => {
+            ) : history.filter((w: any) => w.id !== week?.id).map((w: any) => {
               const winnerNames = w.winners.map((s: any) => profilesMap[s.user_id]?.name ?? "Player").join(" & ");
               const isExpanded = expandedHistoryId === w.id;
+              // Round numbers count regular rounds only; special rounds are labelled instead.
+              const regularRounds = history.filter((x) => x.id !== week?.id && !x.is_special);
               return (
                 <div key={w.id} className="rounded-2xl border overflow-hidden border-zinc-800 bg-zinc-950">
                   <button className="w-full px-4 py-4 text-left space-y-2" onClick={() => setExpandedHistoryId(isExpanded ? null : w.id)}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
-                        {`Round ${history.filter((x: any) => x.id !== week?.id).length - i}`}
+                        {w.is_special ? "Special round" : `Round ${regularRounds.length - regularRounds.indexOf(w)}`}
                       </span>
                       <span className="text-xs text-zinc-400">{fmtDate(w.created_at)}</span>
                     </div>

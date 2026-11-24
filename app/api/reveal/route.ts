@@ -31,6 +31,10 @@ export async function POST(req: Request) {
     .eq("id", weekId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Special rounds are for fun: reveal them, but leave the league standings alone.
+  const { data: weekRow } = await admin.from("weeks").select("is_special").eq("id", weekId).single();
+  if (weekRow?.is_special) return NextResponse.json({ ok: true, scored: false });
+
   // Compute scores from votes
   const [{ data: submissions }, { data: votes }, { data: members }, { data: lockedVoters }] = await Promise.all([
     admin.from("song_submissions").select("id, user_id").eq("week_id", weekId),
